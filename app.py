@@ -22,8 +22,10 @@ if order_file and code_file:
             main(o_path, c_path, out_path)  # 처리
 
             with open(out_path, "rb") as f:
+from datetime import datetime
+                today = datetime.today().strftime("%Y%m%d")
                 st.download_button(
                     "📥 완성 파일 다운로드",
                     data=f,
-                    file_name="자사몰_주문취합.xlsx"
+                    file_name=f"자사몰주문취합_{today}.xlsx"
                 )
