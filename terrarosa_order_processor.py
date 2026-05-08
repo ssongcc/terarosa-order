@@ -313,9 +313,9 @@ def match_code(row, code_df: pd.DataFrame) -> str:
 
     # 코드파일 열 이름 추정
     cols = code_df.columns.tolist()
-    c_name = cols[0] if len(cols) > 0 else ""
-    c_opt = cols[2] if len(cols) > 2 else ""
-    c_code = cols[-1]
+    c_code = cols[0]   # A열 = 상품코드
+    c_name = cols[1]   # B열 = 상품명
+    c_opt  = cols[2]   # C열 = 옵션
 
     def c(col, val):
         return code_df[col].str.strip() == val
