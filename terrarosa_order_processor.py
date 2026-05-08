@@ -20,6 +20,7 @@ REMOVE_STRINGS = [
     "/구매 안함", "/플러스", "[플러스] ", "/불필요", "/필요",
     "불필요", "필요", "/상자 없음", "/포장 없음",
     "테라로사 시그니처 ", "[Online Exclusive] ", "[Online Exclusive/플러스] ",
+    "[C.O.E/플러스] ",   #
 ]
 
 TEXT_REPLACE = {
@@ -205,21 +206,8 @@ def merge_gratitude_month(df: pd.DataFrame) -> pd.DataFrame:
     gdf = df[mask].copy()
     others = df[~mask].copy()
 
-    gdf["_key"] = gdf["옵션"].str[:4]
-    merged = (
-        gdf.groupby("_key", sort=False)
-        .apply(lambda g: pd.Series({
-            "품목명": g.iloc[0]["품목명"],
-            "중량": g.iloc[0]["중량"],
-            "옵션": g["옵션"].str.len().idxmin(),  # 더 짧은 표현
-            "수량": g["수량"].sum(),
-        }))
-        .reset_index(drop=True)
-    )
-    # 옵션 인덱스 → 실제 값으로 복원
-    def get_shorter_option(g):
-        opts = g["옵션"].values
-        return min(opts, key=len)
+    # 품목명 + 옵션 앞 4자가 모두 같아야 합산
+    gdf["_key"] = gdf["품목명"] + "_" + gdf["옵션"].str[:4]
 
     merged2_rows = []
     for key, g in gdf.groupby("_key", sort=False):
