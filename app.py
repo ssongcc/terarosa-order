@@ -1,6 +1,7 @@
 import streamlit as st
-from terrarosa_order_processor import main
+from terarosa_order_processor import main
 import tempfile, os
+from datetime import datetime
 
 st.title("☕ 테라로사 주문취합 자동화")
 
@@ -16,14 +17,16 @@ if order_file and code_file:
             c_path = os.path.join(tmp, "code.xlsx")
             out_path = os.path.join(tmp, "result.xlsx")
 
-            with open(o_path, "wb") as f: f.write(order_file.read())
-            with open(c_path, "wb") as f: f.write(code_file.read())
+            with open(o_path, "wb") as f:
+                f.write(order_file.read())
+            with open(c_path, "wb") as f:
+                f.write(code_file.read())
 
-            main(o_path, c_path, out_path)  # 처리
+            main(o_path, c_path, out_path)
+
+            today = datetime.today().strftime("%Y%m%d")
 
             with open(out_path, "rb") as f:
-from datetime import datetime
-                today = datetime.today().strftime("%Y%m%d")
                 st.download_button(
                     "📥 완성 파일 다운로드",
                     data=f,
