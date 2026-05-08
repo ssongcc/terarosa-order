@@ -206,13 +206,13 @@ def merge_gratitude_month(df: pd.DataFrame) -> pd.DataFrame:
     gdf = df[mask].copy()
     others = df[~mask].copy()
 
-    # 품목명 + 옵션 앞 4자가 모두 같아야 합산
-    gdf["_key"] = gdf["품목명"] + "_" + gdf["옵션"].str[:4]
+    # 옵션 앞 5자가 같으면 합산
+    gdf["_key"] = gdf["옵션"].str[:5]
 
     merged2_rows = []
     for key, g in gdf.groupby("_key", sort=False):
         row = {
-            "품목명": g.iloc[0]["품목명"],
+            "품목명": "[감사의 달] 2026 선물대전",  # 품목명 통일
             "중량": g.iloc[0]["중량"],
             "옵션": min(g["옵션"].values, key=len),
             "수량": g["수량"].sum(),
