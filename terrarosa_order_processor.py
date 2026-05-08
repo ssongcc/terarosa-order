@@ -182,13 +182,15 @@ def resolve_kingkong_name(df: pd.DataFrame) -> pd.DataFrame:
 # ──────────────────────────────────────────────
 # 5. King콩 옵션 정리 (바리스타·농부·농장주 제거 후 합산)
 # ──────────────────────────────────────────────
-SPECIAL_OPTIONS = ["/ 테라로사 바리스타", "/ 에티오피아 농부", "/ 멕시코 농장주"]
-
-
 def clean_kingkong_options(df: pd.DataFrame) -> pd.DataFrame:
-    mask = df["품목명"].str.contains(r"[Kk]ing콩", na=False)
-    for opt in SPECIAL_OPTIONS:
-        df.loc[mask, "옵션"] = df.loc[mask, "옵션"].str.replace(opt, "", regex=False).str.strip()
+    mask = df["품목명"].str.contains(r"[Kk][Ii][Nn][Gg]콩", na=False)
+    # //와 / 모두 제거 (슬래시 개수 무관)
+    for keyword in ["테라로사 바리스타", "에티오피아 농부", "멕시코 농장주"]:
+        df.loc[mask, "옵션"] = df.loc[mask, "옵션"].str.replace(
+            r"\s*/{1,2}\s*" + keyword, "", regex=True
+        ).str.strip()
+    # 옵션 끝에 남은 슬래시 정리
+    df.loc[mask, "옵션"] = df.loc[mask, "옵션"].str.strip("/").str.strip()
     return df
 
 
