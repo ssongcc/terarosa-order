@@ -303,78 +303,72 @@ def match_code(row, code_df: pd.DataFrame) -> str:
     weight = str(row["중량"]).strip()
     option = str(row["옵션"]).strip()
 
-    def search(cond):
-        res = code_df[cond]
+    c_code = code_df.columns[0]  # A열 = 상품코드
+    c_name = code_df.columns[1]  # B열 = 상품명
+    c_opt  = code_df.columns[2]  # C열 = 옵션
+
+    def eq(col, val):
+        return code_df[col].str.strip() == val.strip()
+
+    # 1. King콩 (대소문자 무관, 옵션 무관 → 500g으로 매칭)
+    if re.search(r"[Kk][Ii][Nn][Gg]콩", name):
+        res = code_df[eq(c_name, name) & (code_df[c_opt].str.strip() == "500g")]
         if not res.empty:
-            code_col = [c for c in code_df.columns if "코드" in c or "code" in c.lower()]
-            if code_col:
-                return str(res.iloc[0][code_col[0]])
-        return None
-
-    # 코드파일 열 이름 추정
-    cols = code_df.columns.tolist()
-    c_code = cols[0]   # A열 = 상품코드
-    c_name = cols[1]   # B열 = 상품명
-    c_opt  = cols[2]   # C열 = 옵션
-
-    def c(col, val):
-        return code_df[col].str.strip() == val
-
-    # 1. King콩
-    if re.search(r"[Kk]ing콩", name):
-        norm = re.sub(r"[Kk]ing콩", "King콩", name)
-        res = code_df[c(c_name, norm) & code_df[c_opt].str.contains("500g", na=False)]
+            return str(res.iloc[0][c_code])
+        # 품목명만으로 fallback
+        res = code_df[eq(c_name, name)]
         if not res.empty:
             return str(res.iloc[0][c_code])
 
-    # 2. S.O.S
+    # 2. S.O.S (품목명 + 중량)
     if "S.O.S" in name:
-        res = code_df[c(c_name, name) & c(c_opt, weight)]
+        res = code_df[eq(c_name, name) & eq(c_opt, weight)]
         if not res.empty:
             return str(res.iloc[0][c_code])
 
-    # 3. 스쿱 세트
+    # 3. 원두&커피 스쿱 세트 (옵션에 (250g) 붙여서 매칭)
     if "스쿱 세트" in name or "스쿱세트" in name:
         opt_with_weight = option + "(250g)"
-        res = code_df[c(c_opt, opt_with_weight)]
+        res = code_df[eq(c_opt, opt_with_weight)]
         if not res.empty:
             return str(res.iloc[0][c_code])
 
-    # 4. TO-GO 세트 (색상 제거)
-    if "TO-GO" in name or "TO GO" in name or "to-go" in name.lower():
+    # 4. TO-GO 세트 (색상 제거 후 매칭)
+    if "TO-GO" in name or "to-go" in name.lower():
         opt_no_color = re.sub(r"/블랙|/투명|/화이트|/레드", "", option).strip()
-        res = code_df[c(c_name, name) & c(c_opt, opt_no_color)]
+        res = code_df[eq(c_name, name) & eq(c_opt, opt_no_color)]
         if not res.empty:
             return str(res.iloc[0][c_code])
 
-    # 5. 원두 (품목명+중량)
-    res = code_df[c(c_name, name) & c(c_opt, weight)]
-    if not res.empty:
-        return str(res.iloc[0][c_code])
+    # 5. 원두 (품목명 + 중량으로 매칭)
+    if weight:
+        res = code_df[eq(c_name, name) & eq(c_opt, weight)]
+        if not res.empty:
+            return str(res.iloc[0][c_code])
 
-    # 6. 기본 매칭 (품목명+옵션)
-    res = code_df[c(c_name, name) & c(c_opt, option)]
+    # 6. 기본 매칭 (품목명 + 옵션)
+    res = code_df[eq(c_name, name) & eq(c_opt, option)]
     if not res.empty:
         return str(res.iloc[0][c_code])
 
     # 7. 옵션 순서 불일치 (+기준 정렬)
     sorted_opt = "+".join(sorted(option.split("+")))
-    def sort_opt(x):
-        return "+".join(sorted(str(x).split("+")))
-    res = code_df[code_df[c_name].str.strip() == name]
-    if not res.empty:
-        match = res[res[c_opt].apply(sort_opt) == sorted_opt]
+    name_rows = code_df[code_df[c_name].str.strip() == name]
+    if not name_rows.empty:
+        match = name_rows[name_rows[c_opt].apply(
+            lambda x: "+".join(sorted(str(x).split("+"))) == sorted_opt
+        )]
         if not match.empty:
             return str(match.iloc[0][c_code])
 
-    # 8. 품목명만 fallback
+    # 8. 품목명만 fallback (옵션 없는 행)
     res = code_df[(code_df[c_name].str.strip() == name) & (code_df[c_opt].str.strip() == "")]
     if not res.empty:
         return str(res.iloc[0][c_code])
 
-    # 9. 옥스포드 피규어
+    # 9. 옥스포드 피규어 (C열 옵션으로 매칭)
     if "옥스포드" in name:
-        res = code_df[c(c_name, name) & c(c_opt, option)]
+        res = code_df[eq(c_name, name) & eq(c_opt, option)]
         if not res.empty:
             return str(res.iloc[0][c_code])
 
