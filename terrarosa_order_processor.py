@@ -542,7 +542,7 @@ def insert_sheet3_into_sheet1(wb: Workbook):
 # ──────────────────────────────────────────────
 # 메인
 # ──────────────────────────────────────────────
-def main(order_file: str, code_file: str):
+def main(order_file: str, code_file: str, output_file: str = None):
     # 1. 데이터 로드
     raw_df = load_order_data(order_file)
     code_df = load_code_data(code_file)
@@ -603,7 +603,7 @@ def main(order_file: str, code_file: str):
 
     # 14. 저장
     today = datetime.today().strftime("%Y%m%d")
-    output_path = f"자사몰_주문취합_{today}.xlsx"
+    output_path = output_file if output_file else f"자사몰_주문취합_{today}.xlsx"
     wb.save(output_path)
     print(f"저장 완료: {output_path}")
 
