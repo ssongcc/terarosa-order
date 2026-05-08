@@ -587,7 +587,7 @@ def main(order_file: str, code_file: str, output_file: str = None):
 
     # 14. 저장
     today = datetime.today().strftime("%Y%m%d")
-    output_path = output_file if output_file else f"자사몰_주문취합_{today}.xlsx"
+    output_path = output_file if output_file else f"자사몰주문취합_{today}.xlsx"
     wb.save(output_path)
     print(f"저장 완료: {output_path}")
 
