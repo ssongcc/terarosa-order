@@ -447,19 +447,16 @@ def apply_style(ws, df_with_groups: pd.DataFrame):
     header_font = Font(name="Arial", size=10, bold=True)
     body_font = Font(name="Arial", size=10)
 
-    # 1행 빈행
-    ws.cell(row=1, column=1, value="")
-
     # 헤더
     headers = ["품목명", "중량", "옵션", "수량", "자사몰상품코드"]
     for col_idx, h in enumerate(headers, 1):
-        cell = ws.cell(row=2, column=col_idx, value=h)
+        cell = ws.cell(row=1, column=col_idx, value=h)
         cell.font = header_font
         cell.fill = header_fill
         cell.alignment = Alignment(horizontal="center")
         cell.border = THIN_BORDER
 
-    row_num = 3
+    row_num = 2
     prev_name = None
 
     for _, r in df_with_groups.iterrows():
