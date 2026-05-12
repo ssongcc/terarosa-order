@@ -166,14 +166,21 @@ def split_item(raw_name: str):
 # ──────────────────────────────────────────────
 def resolve_kingkong_name(df: pd.DataFrame) -> pd.DataFrame:
     """'이 달의 킹콩' 행의 품목명을 실제 King콩 품목명으로 교체"""
-    king_rows = df[df["품목명"].str.contains(r"[Kk]ing콩", na=False)]
-    if king_rows.empty:
-        return df
-
-    # 첫 번째로 등장하는 King콩 품목명 (접두사 포함 전체)
-    king_name = king_rows.iloc[0]["품목명"]
+    king_rows = df[df["품목명"].str.contains(r"[Kk][Ii][Nn][Gg]콩", na=False)]
 
     mask = df["품목명"].str.contains("이 달의 킹콩|이달의 킹콩", na=False)
+    if not mask.any():
+        return df
+
+    if not king_rows.empty:
+        # 같은 데이터에 King콩 품목이 있으면 그 이름 사용
+        king_name = king_rows.iloc[0]["품목명"]
+    else:
+        # King콩 품목이 없으면 월을 오늘 날짜 기준으로 자동 생성
+        from datetime import datetime
+        month = datetime.today().month
+        king_name = f"[{month}월 KING콩]"
+
     df.loc[mask, "품목명"] = king_name
     df.loc[mask, "중량"] = "500g"
     df.loc[mask, "옵션"] = "플러스쿠폰"
