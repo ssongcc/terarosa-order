@@ -206,20 +206,36 @@ def merge_gratitude_month(df: pd.DataFrame) -> pd.DataFrame:
     gdf = df[mask].copy()
     others = df[~mask].copy()
 
-    # 옵션 앞 5자가 같으면 합산
-    gdf["_key"] = gdf["옵션"].str[:5]
-
     merged2_rows = []
-    for key, g in gdf.groupby("_key", sort=False):
-        row = {
-            "품목명": "[감사의 달] 2026 선물대전",  # 품목명 통일
-            "중량": g.iloc[0]["중량"],
-            "옵션": min(g["옵션"].values, key=len),
-            "수량": g["수량"].sum(),
-        }
-        merged2_rows.append(row)
-    merged2 = pd.DataFrame(merged2_rows)
 
+    # 옵션이 있는 것과 없는 것 분리
+    gdf_with_opt = gdf[gdf["옵션"].str.strip() != ""].copy()
+    gdf_no_opt   = gdf[gdf["옵션"].str.strip() == ""].copy()
+
+    # 옵션 있는 것: 앞 5자 기준 합산
+    if not gdf_with_opt.empty:
+        gdf_with_opt["_key"] = gdf_with_opt["옵션"].str[:5]
+        for key, g in gdf_with_opt.groupby("_key", sort=False):
+            row = {
+                "품목명": "[감사의 달] 2026 선물대전",
+                "중량": g.iloc[0]["중량"],
+                "옵션": min(g["옵션"].values, key=len),
+                "수량": g["수량"].sum(),
+            }
+            merged2_rows.append(row)
+
+    # 옵션 없는 것: 품목명 그대로 유지, 합산만
+    if not gdf_no_opt.empty:
+        for name, g in gdf_no_opt.groupby("품목명", sort=False):
+            row = {
+                "품목명": name,
+                "중량": g.iloc[0]["중량"],
+                "옵션": "",
+                "수량": g["수량"].sum(),
+            }
+            merged2_rows.append(row)
+
+    merged2 = pd.DataFrame(merged2_rows)
     return pd.concat([others, merged2], ignore_index=True)
 
 
