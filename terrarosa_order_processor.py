@@ -440,8 +440,6 @@ def build_sheet2(main_df: pd.DataFrame) -> pd.DataFrame:
 # ──────────────────────────────────────────────
 def apply_style(ws, df_with_groups: pd.DataFrame):
     """시트1(주문취합)에 서식 적용"""
-    from datetime import datetime
-
     header_fill = PatternFill("solid", fgColor=COLOR_HEADER)
     drip_fill = PatternFill("solid", fgColor=COLOR_DRIP)
     scoop_fill = PatternFill("solid", fgColor=COLOR_SCOOP)
@@ -449,24 +447,16 @@ def apply_style(ws, df_with_groups: pd.DataFrame):
     header_font = Font(name="Arial", size=10, bold=True)
     body_font = Font(name="Arial", size=10)
 
-    # 1행에 오늘 날짜 출력
-    weekdays = ["월", "화", "수", "목", "금", "토", "일"]
-    today = datetime.today()
-    date_str = f"{today.month:02d}/{today.day:02d}({weekdays[today.weekday()]})"
-    date_cell = ws.cell(row=1, column=1, value=date_str)
-    date_cell.font = Font(name="Arial", size=10, bold=True)
-    date_cell.alignment = Alignment(horizontal="left")
-
     # 헤더
     headers = ["품목명", "중량", "옵션", "수량", "자사몰상품코드"]
     for col_idx, h in enumerate(headers, 1):
-        cell = ws.cell(row=2, column=col_idx, value=h)
+        cell = ws.cell(row=1, column=col_idx, value=h)
         cell.font = header_font
         cell.fill = header_fill
         cell.alignment = Alignment(horizontal="center")
         cell.border = THIN_BORDER
 
-    row_num = 3
+    row_num = 2
     prev_name = None
 
     for _, r in df_with_groups.iterrows():
