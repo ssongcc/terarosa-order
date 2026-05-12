@@ -527,12 +527,12 @@ def insert_sheet3_into_sheet1(wb: Workbook):
     if insert_count <= 0:
         return
 
-    # 1행(빈행) 다음인 2행에 삽입 공간 확보 (+1 구분 빈행)
-    ws1.insert_rows(2, amount=insert_count + 1)
+    # 시트1의 2행에 삽입 공간 확보
+    ws1.insert_rows(2, amount=insert_count + 1)  # +1 빈 행
 
-    # 시트3 데이터 복사 (2행부터 → 시트1의 2행부터)
+    # 시트3 데이터 복사 (2행부터)
     for src_row_idx in range(2, max_row_3 + 1):
-        dest_row_idx = src_row_idx
+        dest_row_idx = src_row_idx  # 2→2, 3→3 ...
         for col_idx in range(1, ws3.max_column + 1):
             src_cell = ws3.cell(row=src_row_idx, column=col_idx)
             dst_cell = ws1.cell(row=dest_row_idx, column=col_idx)
@@ -543,8 +543,8 @@ def insert_sheet3_into_sheet1(wb: Workbook):
                 dst_cell.border = copy(src_cell.border)
                 dst_cell.alignment = copy(src_cell.alignment)
 
-    # 삽입된 데이터 다음 빈행 (구분선)
-    blank_row = 1 + insert_count + 1
+    # 삽입 후 빈 행 (구분)
+    blank_row = 2 + insert_count
     for col_idx in range(1, 6):
         ws1.cell(row=blank_row, column=col_idx).border = THIN_BORDER
 
