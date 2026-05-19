@@ -112,7 +112,58 @@ def split_item(raw_name: str):
     """
     품목명_옵션 분리 후 (품목명, 중량, 옵션) 반환
     특수 품목은 별도 처리
+    반환값이 리스트인 경우 → 여러 행으로 분리 필요
     """
+    # [커피 페스타 1+1] 6월 King콩 ... _옵션/추출원두명(250g)
+    # → 행1: King콩 품목  (품목명, 250g, 갈지않음)
+    # → 행2: "[커피 페스타 1+1] " + 추출원두명  (250g, 갈지않음)
+    if "[커피 페스타 1+1]" in raw_name and "King콩" in raw_name:
+        if "_" in raw_name:
+            item_part, opt_part = raw_name.split("_", 1)
+        else:
+            item_part, opt_part = raw_name, ""
+        item_name = item_part.strip()
+        opt_part = re.sub(r"\(\d*g?\)", "", opt_part).strip()
+        if "/" in opt_part:
+            before_slash, extra_bean = opt_part.split("/", 1)
+            extra_bean = extra_bean.strip()
+        else:
+            before_slash = opt_part
+            extra_bean = ""
+        row1 = (item_name, "250g", "갈지않음")
+        if extra_bean:
+            row2 = ("[커피 페스타 1+1] " + extra_bean, "250g", "갈지않음")
+            return [row1, row2]
+        return row1
+
+    # [커피 페스타 1+1] 액상커피+파우더스틱 ... _옵션1 / 옵션2
+    # → 행1: 품목명 그대로, C열 = "/" 앞 옵션
+    # → 행2: 품목명 동일, C열 = "/" 뒷 옵션 (수량 동일)
+    if "[커피 페스타 1+1]" in raw_name and "액상커피" in raw_name:
+        item_name = "[커피 페스타 1+1] 액상커피+파우더스틱"
+        opt_part = raw_name.split("_", 1)[1].strip() if "_" in raw_name else ""
+        opt_part = re.sub(r"\(\d+개입\)", "", opt_part).strip()
+        # 괄호 밖의 첫 번째 "/" 기준으로만 분리
+        depth = 0
+        slash_idx = -1
+        for i, ch in enumerate(opt_part):
+            if ch == "(": depth += 1
+            elif ch == ")": depth -= 1
+            elif ch == "/" and depth == 0:
+                slash_idx = i
+                break
+        if slash_idx != -1:
+            opt1 = opt_part[:slash_idx].strip()
+            opt2 = opt_part[slash_idx + 1:].strip()
+        else:
+            opt1, opt2 = opt_part, ""
+        row1 = (item_name, "", opt1)
+        if opt2:
+            row2 = (item_name, "", opt2)
+            return [row1, row2]
+        return row1
+
+    
     # [첫 구매 찬스] 어센틱 에스프레소 블렌드 250g
     if "[첫 구매 찬스]" in raw_name:
         name = raw_name.replace("[첫 구매 찬스] ", "").replace("250g", "").strip()
@@ -560,11 +611,24 @@ def main(order_file: str, code_file: str, output_file: str = None):
     # 3. 텍스트 정리
     raw_df["품목명_정리"] = raw_df["품목명_원본"].apply(clean_item_name)
 
-    # 4. 분리 (품목명, 중량, 옵션)
-    split_result = raw_df["품목명_정리"].apply(split_item)
-    raw_df[["품목명", "중량", "옵션"]] = pd.DataFrame(
-        split_result.tolist(), index=raw_df.index
-    )
+    # 4. 분리 (품목명, 중량, 옵션) — split_item이 리스트 반환 시 행 확장
+    expanded_rows = []
+    for _, row in raw_df.iterrows():
+        result = split_item(row["품목명_정리"])
+        if isinstance(result, list):
+            for r in result:
+                new_row = row.copy()
+                new_row["품목명"] = r[0]
+                new_row["중량"] = r[1]
+                new_row["옵션"] = r[2]
+                expanded_rows.append(new_row)
+        else:
+            new_row = row.copy()
+            new_row["품목명"] = result[0]
+            new_row["중량"] = result[1]
+            new_row["옵션"] = result[2]
+            expanded_rows.append(new_row)
+    raw_df = pd.DataFrame(expanded_rows).reset_index(drop=True)
 
     # 5. S.O.S 중량 보정
     raw_df["중량"] = raw_df.apply(
