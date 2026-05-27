@@ -197,6 +197,14 @@ def split_item(raw_name: str):
             return item_name, "250g", option
         return raw_name, "250g", ""
 
+    # 간편커피&유리머그 세트 → 두 행으로 분리
+    # 행1: 옵션 = "클래식 핫브루 10개입", 행2: 옵션 = "투명 유리머그"
+    if "간편커피&유리머그 세트" in raw_name or "간편커피 & 유리머그 세트" in raw_name:
+        item_name = raw_name.split("_", 1)[0].strip() if "_" in raw_name else raw_name.strip()
+        row1 = (item_name, "", "클래식 핫브루 10개입")
+        row2 = (item_name, "", "투명 유리머그")
+        return [row1, row2]
+
     # 일반: 언더스코어로 분리
     if "_" in raw_name:
         parts = raw_name.split("_", 1)
