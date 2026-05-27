@@ -130,7 +130,7 @@ def split_item(raw_name: str):
         else:
             before_slash = opt_part
             extra_bean = ""
-opt1 = before_slash.strip().strip("/").strip()
+        opt1 = before_slash.strip().strip("/").strip()
         row1 = (item_name, "250g", opt1)
         if extra_bean:
             row2 = ("[커피 페스타 1+1] " + extra_bean, "250g", "갈지않음")
