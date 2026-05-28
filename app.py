@@ -99,6 +99,39 @@ def expand_set_items(df: pd.DataFrame, set_config: dict) -> pd.DataFrame:
     return pd.DataFrame(expanded).reset_index(drop=True)
 
 # ──────────────────────────────────────────────
+# 무료원두 쿠폰 치환 로직
+# ──────────────────────────────────────────────
+def load_coupon_config() -> list:
+    coupon_path = Path("coupon_config.json")
+    if coupon_path.exists():
+        try:
+            return json.loads(coupon_path.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return []
+
+def expand_coupon_items(df: pd.DataFrame, coupon_config: list) -> pd.DataFrame:
+    """무료원두 쿠폰 행을 설정한 품목들로 교체"""
+    if not coupon_config:
+        return df
+    expanded = []
+    for _, row in df.iterrows():
+        name = str(row.get("품목명", "")).strip()
+        if "무료원두 쿠폰" in name:
+            for comp in coupon_config:
+                if not comp.get("name"):
+                    continue
+                new_row = row.copy()
+                new_row["품목명"]  = comp["name"]
+                new_row["중량"]    = comp.get("weight", "250g")
+                new_row["옵션"]    = comp.get("option", "증정 원두")
+                new_row["수량"]    = int(comp.get("qty", 1))
+                expanded.append(new_row)
+        else:
+            expanded.append(row)
+    return pd.DataFrame(expanded).reset_index(drop=True)
+
+# ──────────────────────────────────────────────
 # 기존 처리 로직 (원본 스크립트 그대로)
 # ──────────────────────────────────────────────
 def load_order_data(file) -> pd.DataFrame:
@@ -467,6 +500,10 @@ def process(order_file, code_file, set_config: dict) -> BytesIO:
     raw_df = resolve_kingkong_name(raw_df)
     raw_df = clean_kingkong_options(raw_df)
     raw_df = merge_gratitude_month(raw_df)
+
+    # ★ 무료원두 쿠폰 치환 적용
+    coupon_config = load_coupon_config()
+    raw_df = expand_coupon_items(raw_df, coupon_config)
 
     # ★ 세트 분리 적용
     raw_df = expand_set_items(raw_df, set_config)
