@@ -97,9 +97,10 @@ def expand_set_items(df: pd.DataFrame, set_config: dict) -> pd.DataFrame:
             for comp in components:
                 new_row = row.copy()
                 new_row["품목명_원본"] = f"[세트분리] {set_name} → {comp['name']}"
-                new_row["품목명"]  = comp["name"]
+                # A열(품목명)은 세트명 그대로 유지, C열(옵션)에 구성 품목명 입력
+                new_row["품목명"]  = set_name
                 new_row["중량"]    = comp.get("weight", "")
-                new_row["옵션"]    = comp.get("option", "")
+                new_row["옵션"]    = comp["name"]
                 new_row["수량"]    = qty * comp.get("qty", 1)
                 new_row["_is_set_expanded"] = True
                 expanded.append(new_row)
