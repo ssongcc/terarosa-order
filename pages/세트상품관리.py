@@ -14,6 +14,13 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 from openpyxl import Workbook
+
+# GitHub 영구 저장소
+try:
+    from github_storage import gh_load, gh_save
+    _USE_GITHUB = True
+except Exception:
+    _USE_GITHUB = False
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
 # ──────────────────────────────────────────────
@@ -52,6 +59,8 @@ WEIGHT_PATTERN = re.compile(r"(\d+(?:\.\d+)?\s*(?:kg|g))", re.IGNORECASE)
 # 세트 구성 설정 로드/저장
 # ──────────────────────────────────────────────
 def load_set_config() -> dict:
+    if _USE_GITHUB:
+        return gh_load("set_config.json", {})
     if CONFIG_PATH.exists():
         try:
             return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
@@ -60,7 +69,10 @@ def load_set_config() -> dict:
     return {}
 
 def save_set_config(cfg: dict):
-    CONFIG_PATH.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+    if _USE_GITHUB:
+        gh_save("set_config.json", cfg)
+    else:
+        CONFIG_PATH.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
 
 # ──────────────────────────────────────────────
 # 세트 분리 로직
@@ -150,25 +162,30 @@ def split_item(raw_name: str):
         opt1 = before_slash.strip().strip("/").strip()
         row1 = (item_name, "250g", opt1)
         if extra_bean:
-            return [row1, ("[커피 페스타 1+1] " + extra_bean, "250g", "갈지않음")]
+            return [row1, ("[커피 페스타 증정] " + extra_bean, "250g", "갈지않음")]
         return row1
 
     if "[커피 페스타 1+1]" in raw_name and "액상커피" in raw_name:
-        item_name = "[커피 페스타 1+1] 액상커피+파우더스틱"
-        opt_part = raw_name.split("_", 1)[1].strip() if "_" in raw_name else ""
+        item_name_orig = "[커피 페스타 1+1] 액상커피+파우더스틱"
+        item_name_gift = "[커피 페스타 증정] 액상커피+파우더스틱"
+        parts = raw_name.split("_")
+        opt_part = parts[1].strip() if len(parts) >= 2 else ""
         opt_part = re.sub(r"\(\d+개입\)", "", opt_part).strip()
-        depth, slash_idx = 0, -1
+        depth, plus_idx = 0, -1
         for i, ch in enumerate(opt_part):
             if ch == "(": depth += 1
             elif ch == ")": depth -= 1
-            elif ch == "/" and depth == 0:
-                slash_idx = i; break
-        if slash_idx != -1:
-            opt1, opt2 = opt_part[:slash_idx].strip(), opt_part[slash_idx+1:].strip()
+            elif ch == "+" and depth == 0:
+                plus_idx = i; break
+        if plus_idx != -1:
+            opt1 = opt_part[:plus_idx].strip()
+            opt2 = opt_part[plus_idx+1:].strip()
         else:
             opt1, opt2 = opt_part, ""
-        row1 = (item_name, "", opt1)
-        return [row1, (item_name, "", opt2)] if opt2 else row1
+        row1 = (item_name_orig, "", opt1)
+        if opt2:
+            return [row1, (item_name_gift, "", opt2)]
+        return row1
 
     if "[첫 구매 찬스]" in raw_name:
         name = raw_name.replace("[첫 구매 찬스] ", "").replace("250g", "").strip()
@@ -347,7 +364,8 @@ def build_sheet3(raw_df: pd.DataFrame) -> pd.DataFrame:
 def build_sheet2(main_df: pd.DataFrame) -> pd.DataFrame:
     rows = {}
     for _, r in main_df[main_df["_group"] == "원두"].iterrows():
-        name = r["품목명"]
+        # [커피 페스타 증정] 등 접두어 제거 후 품목명 기준 합산
+        name = re.sub(r"^\[커피 페스타 증정\]\s*", "", r["품목명"]).strip()
         rows[name] = rows.get(name, 0) + weight_to_gram(r["중량"]) * r["수량"]
     for _, r in main_df[main_df["_group"] == "스쿱세트"].iterrows():
         name = r["옵션"]
