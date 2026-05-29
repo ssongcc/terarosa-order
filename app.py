@@ -14,6 +14,13 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 from openpyxl import Workbook
+
+# GitHub 영구 저장소
+try:
+    from github_storage import gh_load, gh_save
+    _USE_GITHUB = True
+except Exception:
+    _USE_GITHUB = False
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
@@ -53,6 +60,8 @@ WEIGHT_PATTERN = re.compile(r"(\d+(?:\.\d+)?\s*(?:kg|g))", re.IGNORECASE)
 # 세트 구성 설정 로드/저장
 # ──────────────────────────────────────────────
 def load_set_config() -> dict:
+    if _USE_GITHUB:
+        return gh_load("set_config.json", {})
     if CONFIG_PATH.exists():
         try:
             return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
@@ -61,7 +70,10 @@ def load_set_config() -> dict:
     return {}
 
 def save_set_config(cfg: dict):
-    CONFIG_PATH.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+    if _USE_GITHUB:
+        gh_save("set_config.json", cfg)
+    else:
+        CONFIG_PATH.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
 
 # ──────────────────────────────────────────────
 # 세트 분리 로직
@@ -102,6 +114,8 @@ def expand_set_items(df: pd.DataFrame, set_config: dict) -> pd.DataFrame:
 # 무료원두 쿠폰 치환 로직
 # ──────────────────────────────────────────────
 def load_coupon_config() -> list:
+    if _USE_GITHUB:
+        return gh_load("coupon_config.json", [])
     coupon_path = Path("coupon_config.json")
     if coupon_path.exists():
         try:
