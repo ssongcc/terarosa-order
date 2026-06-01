@@ -497,29 +497,89 @@ def insert_sheet3_into_sheet1(wb: Workbook):
         ws1.cell(row=blank_row, column=col_idx).border = THIN_BORDER
 
 def postprocess_festa_rows(ws):
-    """페스타 행 사이 빈행 제거 + 커피 페스타 포함 행 하늘색 채우기"""
+    """페스타 행 빈행 구분 + 커피 페스타 포함 행 하늘색 채우기"""
     FILL_FESTA = PatternFill("solid", fgColor="DDEEFF")
+    FILL_BLANK = PatternFill("solid", fgColor="FFFFFF")
 
-    # ── 1단계: 페스타 행 사이 빈행 제거 (아래서 위로) ──
+    def insert_blank(ws, row_idx):
+        ws.insert_rows(row_idx)
+        for col in range(1, 6):
+            c = ws.cell(row=row_idx, column=col)
+            c.value = None
+            c.fill = FILL_BLANK
+            c.border = THIN_BORDER
+
+    def is_king_brazil(a):
+        return a and "[커피 페스타 1+1]" in str(a) and "KING콩" in str(a) and "브라질" in str(a)
+
+    def is_king_ethiopia(a):
+        return a and "[커피 페스타 1+1]" in str(a) and "KING콩" in str(a) and "에티오피아" in str(a)
+
+    def is_gift_bean(a, b):
+        return a and "[커피 페스타 증정]" in str(a) and str(b) == "250g"
+
+    def is_festa_1p1_liquid(a):
+        return a and "[커피 페스타 1+1]" in str(a) and "액상" in str(a)
+
+    def is_gift_liquid(a, b):
+        return a and "[커피 페스타 증정]" in str(a) and str(b) != "250g"
+
+    def is_festa_item(a):
+        return a and "[커피 페스타]" in str(a)
+
+    # ── 빈행 제거: 페스타 증정 원두 행 사이 빈행 제거 ──
     changed = True
     while changed:
         changed = False
-        rows_data = [row for row in ws.iter_rows(values_only=True)]
-        n = len(rows_data)
-        for i in range(n):
+        rows_data = list(ws.iter_rows(values_only=True))
+        for i in range(1, len(rows_data)):
             a = rows_data[i][0]
-            if a is None:
-                prev_a = rows_data[i-1][0] if i > 0 else None
-                next_a = rows_data[i+1][0] if i+1 < n else None
-                prev_festa = prev_a and "페스타" in str(prev_a)
-                next_festa = next_a and "페스타" in str(next_a)
-                next_none  = next_a is None
-                if prev_festa and (next_festa or next_none):
-                    ws.delete_rows(i + 1)
-                    changed = True
-                    break
+            if a is not None:
+                continue
+            prev_a = rows_data[i-1][0]
+            next_a = rows_data[i+1][0] if i+1 < len(rows_data) else None
+            prev_b = rows_data[i-1][1]
+            next_b = rows_data[i+1][1] if i+1 < len(rows_data) else None
+            if is_gift_bean(prev_a, prev_b) and is_gift_bean(next_a, next_b):
+                ws.delete_rows(i + 1)
+                changed = True
+                break
 
-    # ── 2단계: 커피 페스타 포함 행 하늘색 채우기 ──
+    # ── 빈행 삽입: 아래서 위 순서로 ──
+    rows_data = list(ws.iter_rows(values_only=True))
+    to_insert = []
+
+    for i in range(1, len(rows_data)):
+        prev_a = rows_data[i-1][0]
+        curr_a = rows_data[i][0]
+        prev_b = rows_data[i-1][1]
+        curr_b = rows_data[i][1]
+        if prev_a is None or curr_a is None:
+            continue
+
+        # 1) 브라질 King콩 → 에티오피아 King콩
+        if is_king_brazil(prev_a) and is_king_ethiopia(curr_a):
+            to_insert.append(i + 1)
+        # 2) 에티오피아 King콩 → 증정 원두
+        elif is_king_ethiopia(prev_a) and is_gift_bean(curr_a, curr_b):
+            to_insert.append(i + 1)
+        # 3) 증정 원두 → 1+1 액상
+        elif is_gift_bean(prev_a, prev_b) and is_festa_1p1_liquid(curr_a):
+            to_insert.append(i + 1)
+        # 4) 1+1 액상 → 증정 액상
+        elif is_festa_1p1_liquid(prev_a) and is_gift_liquid(curr_a, curr_b):
+            to_insert.append(i + 1)
+        # 5) 증정 액상 → 다음 품목
+        elif is_gift_liquid(prev_a, prev_b) and not is_gift_liquid(curr_a, curr_b):
+            to_insert.append(i + 1)
+        # 6) [커피 페스타] 단독 품목 사이 (품목명 다를 때)
+        elif is_festa_item(prev_a) and is_festa_item(curr_a) and str(prev_a) != str(curr_a):
+            to_insert.append(i + 1)
+
+    for idx in sorted(set(to_insert), reverse=True):
+        insert_blank(ws, idx)
+
+    # ── 하늘색 채우기: 커피 페스타 포함 행 ──
     for row in ws.iter_rows():
         a_val = row[0].value
         if a_val and "커피 페스타" in str(a_val):
