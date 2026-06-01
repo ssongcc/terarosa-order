@@ -500,14 +500,19 @@ def insert_sheet3_into_sheet1(wb: Workbook):
         ws1.cell(row=blank_row, column=col_idx).border = THIN_BORDER
 
 def postprocess_festa_rows(ws):
-    """페스타 행 빈행 구분 + 커피 페스타 포함 행 하늘색 채우기"""
+    # ── 1순위: 커피 페스타 포함 행 하늘색 ──
     FILL_FESTA = PatternFill("solid", fgColor="DDEEFF")
-    FILL_BLANK = PatternFill("solid", fgColor="FFFFFF")
-
-    # ── 녹색 채우기: 플러스쿠폰 행 ──
-    FILL_GREEN = PatternFill("solid", fgColor="E2EFDA")
     for row in ws.iter_rows():
-        if row[2].value and "플러스쿠폰" in str(row[2].value):
+        a_val = row[0].value
+        if a_val and "커피 페스타" in str(a_val):
+            for cell in row[:5]:
+                cell.fill = FILL_FESTA
+
+    # ── 2순위: 플러스쿠폰 행 녹색 (하늘색 위에 덮어씀) ──
+    FILL_GREEN = PatternFill("solid", fgColor="C6EFCE")
+    for row in ws.iter_rows():
+        c_val = row[2].value
+        if c_val and "플러스쿠폰" in str(c_val):
             for cell in row[:5]:
                 cell.fill = FILL_GREEN
 
