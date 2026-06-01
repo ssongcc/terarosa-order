@@ -141,5 +141,12 @@
       "option": ""
     }
   ],
-  "[Limited edition] 강릉 드립백 20개입&옥스포드 블록 세트": []
+  "[Limited edition] 강릉 드립백 20개입&옥스포드 블록 세트": [
+    {
+      "name": "강릉 블렌드 20개",
+      "qty": 1,
+      "weight": "",
+      "option": ""
+    }
+  ]
 }
