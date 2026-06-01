@@ -187,7 +187,8 @@ def extract_weight(text: str):
         rest = (text[:m.start()] + text[m.end():]).strip().strip("/").strip()
         return w, rest
     return "", text
-
+    
+def split_item(raw_name: str):
     if "[커피 페스타 1+1]" in raw_name and ("KING콩" in raw_name or "King콩" in raw_name):
         item_part = raw_name.split("_", 1)[0].strip() if "_" in raw_name else raw_name
         opt_raw = raw_name.split("_", 1)[1] if "_" in raw_name else ""
