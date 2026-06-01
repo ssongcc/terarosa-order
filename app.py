@@ -188,20 +188,21 @@ def extract_weight(text: str):
         return w, rest
     return "", text
 
-def split_item(raw_name: str):
-    if "[커피 페스타 1+1]" in raw_name and "King콩" in raw_name:
-        item_part, opt_part = (raw_name.split("_", 1) if "_" in raw_name else (raw_name, ""))
-        item_name = item_part.strip()
-        opt_part = re.sub(r"\(\d*g?\)", "", opt_part).strip()
-        if "/" in opt_part:
-            before_slash, extra_bean = opt_part.split("/", 1)
-            extra_bean = extra_bean.strip()
+    if "[커피 페스타 1+1]" in raw_name and ("KING콩" in raw_name or "King콩" in raw_name):
+        item_part = raw_name.split("_", 1)[0].strip() if "_" in raw_name else raw_name
+        opt_raw = raw_name.split("_", 1)[1] if "_" in raw_name else ""
+        for old, new in TEXT_REPLACE.items():
+            opt_raw = opt_raw.replace(old, new)
+        if "/" in opt_raw:
+            grind_opt, gift_bean = opt_raw.split("/", 1)
+            grind_opt = grind_opt.strip()
+            gift_bean = gift_bean.strip()
         else:
-            before_slash, extra_bean = opt_part, ""
-        opt1 = before_slash.strip().strip("/").strip()
-        row1 = (item_name, "250g", opt1)
-        if extra_bean:
-            return [row1, ("[커피 페스타 증정] " + extra_bean, "250g", "갈지않음")]
+            grind_opt = opt_raw.strip()
+            gift_bean = ""
+        row1 = (item_part, "250g", grind_opt)
+        if gift_bean:
+            return [row1, ("[커피 페스타 증정] " + gift_bean, "250g", "갈지않음")]
         return row1
 
     if "[커피 페스타 1+1]" in raw_name and "액상커피" in raw_name:
