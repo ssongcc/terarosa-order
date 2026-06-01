@@ -191,6 +191,8 @@ def extract_weight(text: str):
 def split_item(raw_name: str):
     if "[커피 페스타 1+1]" in raw_name and ("KING콩" in raw_name or "King콩" in raw_name):
         item_part = raw_name.split("_", 1)[0].strip() if "_" in raw_name else raw_name
+        item_part = re.sub(r"\+(블렌드|싱글오리진)$", "", item_part).strip()
+
         opt_raw = raw_name.split("_", 1)[1] if "_" in raw_name else ""
         for old, new in TEXT_REPLACE.items():
             opt_raw = opt_raw.replace(old, new)
@@ -407,12 +409,17 @@ def build_sheet3(raw_df: pd.DataFrame) -> pd.DataFrame:
 def build_sheet2(main_df: pd.DataFrame) -> pd.DataFrame:
     rows = {}
     for _, r in main_df[main_df["_group"] == "원두"].iterrows():
-        # [커피 페스타 증정] 등 접두어 제거 후 품목명 기준 합산
         name = re.sub(r"^\[커피 페스타 증정\]\s*", "", r["품목명"]).strip()
         rows[name] = rows.get(name, 0) + weight_to_gram(r["중량"]) * r["수량"]
     for _, r in main_df[main_df["_group"] == "스쿱세트"].iterrows():
         name = r["옵션"]
         rows[name] = rows.get(name, 0) + 250 * r["수량"]
+    festa_mask = main_df["품목명"].str.contains(r"\[커피 페스타 1\+1\]", na=False) & \
+                 main_df["품목명"].str.contains("KING콩|King콩", na=False)
+    for _, r in main_df[festa_mask].iterrows():
+        name = re.sub(r"^\[커피 페스타 1\+1\]\s*", "", r["품목명"]).strip()
+        rows[name] = rows.get(name, 0) + 250 * r["수량"]
+
     return pd.DataFrame([{"품목명": n, "중량(kg)": round(g / 1000, 3)} for n, g in rows.items()])
 
 def apply_style(ws, df_with_groups: pd.DataFrame):
