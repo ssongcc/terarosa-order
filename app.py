@@ -504,6 +504,13 @@ def postprocess_festa_rows(ws):
     FILL_FESTA = PatternFill("solid", fgColor="DDEEFF")
     FILL_BLANK = PatternFill("solid", fgColor="FFFFFF")
 
+    # ── 녹색 채우기: 플러스쿠폰 행 ──
+    FILL_GREEN = PatternFill("solid", fgColor="E2EFDA")
+    for row in ws.iter_rows():
+        if row[2].value and "플러스쿠폰" in str(row[2].value):
+            for cell in row[:5]:
+                cell.fill = FILL_GREEN
+
     def insert_blank(ws, row_idx):
         ws.insert_rows(row_idx)
         for col in range(1, 6):
