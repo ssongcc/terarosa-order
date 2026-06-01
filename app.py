@@ -408,15 +408,18 @@ def build_sheet3(raw_df: pd.DataFrame) -> pd.DataFrame:
 
 def build_sheet2(main_df: pd.DataFrame) -> pd.DataFrame:
     rows = {}
-    for _, r in main_df[main_df["_group"] == "원두"].iterrows():
+    king_mask = (
+        main_df["품목명"].str.contains(r"\[커피 페스타 1\+1\]", regex=True, na=False) &
+        main_df["품목명"].str.contains("KING콩|King콩", na=False)
+    )
+    for _, r in main_df[(main_df["_group"] == "원두") & ~king_mask].iterrows():
+
         name = re.sub(r"^\[커피 페스타 증정\]\s*", "", r["품목명"]).strip()
         rows[name] = rows.get(name, 0) + weight_to_gram(r["중량"]) * r["수량"]
     for _, r in main_df[main_df["_group"] == "스쿱세트"].iterrows():
         name = r["옵션"]
         rows[name] = rows.get(name, 0) + 250 * r["수량"]
-    festa_mask = main_df["품목명"].str.contains(r"\[커피 페스타 1\+1\]", na=False) & \
-                 main_df["품목명"].str.contains("KING콩|King콩", na=False)
-    for _, r in main_df[festa_mask].iterrows():
+    for _, r in main_df[king_mask].iterrows():
         name = re.sub(r"^\[커피 페스타 1\+1\]\s*", "", r["품목명"]).strip()
         rows[name] = rows.get(name, 0) + 250 * r["수량"]
 
