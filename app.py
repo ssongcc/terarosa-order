@@ -496,6 +496,36 @@ def insert_sheet3_into_sheet1(wb: Workbook):
     for col_idx in range(1, 6):
         ws1.cell(row=blank_row, column=col_idx).border = THIN_BORDER
 
+def postprocess_festa_rows(ws):
+    """페스타 행 사이 빈행 제거 + 커피 페스타 포함 행 하늘색 채우기"""
+    FILL_FESTA = PatternFill("solid", fgColor="DDEEFF")
+
+    # ── 1단계: 페스타 행 사이 빈행 제거 (아래서 위로) ──
+    changed = True
+    while changed:
+        changed = False
+        rows_data = [row for row in ws.iter_rows(values_only=True)]
+        n = len(rows_data)
+        for i in range(n):
+            a = rows_data[i][0]
+            if a is None:
+                prev_a = rows_data[i-1][0] if i > 0 else None
+                next_a = rows_data[i+1][0] if i+1 < n else None
+                prev_festa = prev_a and "페스타" in str(prev_a)
+                next_festa = next_a and "페스타" in str(next_a)
+                next_none  = next_a is None
+                if prev_festa and (next_festa or next_none):
+                    ws.delete_rows(i + 1)
+                    changed = True
+                    break
+
+    # ── 2단계: 커피 페스타 포함 행 하늘색 채우기 ──
+    for row in ws.iter_rows():
+        a_val = row[0].value
+        if a_val and "커피 페스타" in str(a_val):
+            for cell in row[:5]:
+                cell.fill = FILL_FESTA
+
 # ──────────────────────────────────────────────
 # 메인 처리
 # ──────────────────────────────────────────────
@@ -555,6 +585,7 @@ def process(order_file, code_file, set_config: dict) -> BytesIO:
     ws3 = wb.create_sheet("바리스타·농부·농장주")
     write_simple_sheet(ws3, sheet3_df, ["품목명", "빈칸", "이름", "수량"])
     insert_sheet3_into_sheet1(wb)
+    postprocess_festa_rows(wb["주문취합"])
 
     buf = BytesIO()
     wb.save(buf)
