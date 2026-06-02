@@ -345,8 +345,8 @@ def build_sheet3(raw_df: pd.DataFrame) -> pd.DataFrame:
     for label, keyword in targets.items():
         mask = raw_df["품목명_원본"].str.contains(keyword, na=False)
         qty  = raw_df.loc[mask, "수량"].sum()
-        rows.append({"품목명": "옥스포드 피규어", "빈칸": "", "이름": label,
-                     "수량": qty if qty > 0 else "-"})
+        if qty > 0:
+            rows.append({"품목명": "옥스포드 피규어", "빈칸": "", "이름": label, "수량": qty})
     return pd.DataFrame(rows)
 
 def build_sheet2(main_df: pd.DataFrame) -> pd.DataFrame:
