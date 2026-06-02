@@ -46,7 +46,7 @@ COLOR_DRIP   = "E2EFDA"
 COLOR_SCOOP  = "FFF2CC"
 COLOR_HEADER = "D9D9D9"
 COLOR_WHITE  = "FFFFFF"
-COLOR_SET    = "DDEEFF"
+COLOR_SET    = "DDEEFF"   # 세트 분리 행 강조색
 COL_WIDTHS   = {"A": 42, "B": 10, "C": 35, "D": 8, "E": 18}
 THIN_BORDER  = Border(
     left=Side(style="thin", color="BFBFBF"),
@@ -79,8 +79,10 @@ def save_set_config(cfg: dict):
 # 세트 분리 로직
 # ──────────────────────────────────────────────
 def expand_set_items(df: pd.DataFrame, set_config: dict) -> pd.DataFrame:
+    """세트 상품을 구성 품목별 행으로 분리"""
     if not set_config:
         return df
+
     expanded = []
     for _, row in df.iterrows():
         name = str(row.get("품목명", "")).strip()
@@ -95,6 +97,7 @@ def expand_set_items(df: pd.DataFrame, set_config: dict) -> pd.DataFrame:
             for comp in components:
                 new_row = row.copy()
                 new_row["품목명_원본"] = f"[세트분리] {set_name} → {comp['name']}"
+                # A열(품목명)은 세트명 그대로 유지, C열(옵션)에 구성 품목명 입력
                 new_row["품목명"]  = set_name
                 new_row["중량"]    = comp.get("weight", "")
                 new_row["옵션"]    = comp["name"]
@@ -123,6 +126,7 @@ def load_coupon_config() -> list:
     return []
 
 def expand_coupon_items(df: pd.DataFrame, coupon_config: list) -> pd.DataFrame:
+    """무료원두 쿠폰 행을 설정한 품목들로 교체"""
     if not coupon_config:
         return df
     expanded = []
@@ -143,7 +147,7 @@ def expand_coupon_items(df: pd.DataFrame, coupon_config: list) -> pd.DataFrame:
     return pd.DataFrame(expanded).reset_index(drop=True)
 
 # ──────────────────────────────────────────────
-# 기존 처리 로직
+# 기존 처리 로직 (원본 스크립트 그대로)
 # ──────────────────────────────────────────────
 def load_order_data(file) -> pd.DataFrame:
     df = pd.read_excel(file, sheet_name="취합용", header=0, dtype=str)
@@ -183,11 +187,12 @@ def extract_weight(text: str):
         rest = (text[:m.start()] + text[m.end():]).strip().strip("/").strip()
         return w, rest
     return "", text
-
+    
 def split_item(raw_name: str):
     if "[커피 페스타 1+1]" in raw_name and ("KING콩" in raw_name or "King콩" in raw_name):
         item_part = raw_name.split("_", 1)[0].strip() if "_" in raw_name else raw_name
         item_part = re.sub(r"\+(블렌드|싱글오리진)$", "", item_part).strip()
+
         opt_raw = raw_name.split("_", 1)[1] if "_" in raw_name else ""
         for old, new in TEXT_REPLACE.items():
             opt_raw = opt_raw.replace(old, new)
@@ -206,9 +211,11 @@ def split_item(raw_name: str):
     if "[커피 페스타 1+1]" in raw_name and "액상커피" in raw_name:
         item_name_orig = "[커피 페스타 1+1] 액상커피+파우더스틱"
         item_name_gift = "[커피 페스타 증정] 액상커피+파우더스틱"
+        # _로 분리: 첫 번째 _ 뒤가 옵션
         parts = raw_name.split("_")
         opt_part = parts[1].strip() if len(parts) >= 2 else ""
         opt_part = re.sub(r"\(\d+개입\)", "", opt_part).strip()
+        # 괄호 밖의 첫 번째 "+" 기준으로 분리
         depth, plus_idx = 0, -1
         for i, ch in enumerate(opt_part):
             if ch == "(": depth += 1
@@ -232,10 +239,13 @@ def split_item(raw_name: str):
     if "무료원두 쿠폰" in raw_name:
         return "무료원두 쿠폰 250g", "250g", "증정 원두"
 
-    if "이 달의 킹콩" in raw_name or "이달의 킹콩" in raw_name:
+    if "이 달의 킹콩" in raw_name \
+            or "이달의 킹콩" in raw_name:
         return [
-            ("[커피 페스타 1+1] 6월 KING콩 브라질 산투안토니우 엔리케", "250g", "플러스쿠폰"),
-            ("[커피 페스타 1+1] 6월 KING콩 에티오피아 시다마 벤사", "250g", "플러스쿠폰"),
+            ("[커피 페스타 1+1] 6월 KING콩 브라질 산투안토니우 엔리케",
+             "250g", "플러스쿠폰"),
+            ("[커피 페스타 1+1] 6월 KING콩 에티오피아 시다마 벤사",
+             "250g", "플러스쿠폰"),
         ]
 
     if "이 달의 드립백" in raw_name or "이달의 드립백" in raw_name:
@@ -268,6 +278,8 @@ def split_item(raw_name: str):
     return raw_name, "", ""
 
 def resolve_kingkong_name(df):
+    # 이달의 킹콩은 split_item에서
+    # 브라질/에티오피아 2행으로 분리 처리됨
     return df
 
 def clean_kingkong_options(df: pd.DataFrame) -> pd.DataFrame:
@@ -393,7 +405,7 @@ def build_sheet3(raw_df: pd.DataFrame) -> pd.DataFrame:
         if qty > 0:
             rows.append({"품목명": "옥스포드 피규어", "빈칸": "", "이름": label, "수량": qty})
     return pd.DataFrame(rows)
-
+    
 def build_sheet2(main_df: pd.DataFrame) -> pd.DataFrame:
     rows = {}
     king_mask = (
@@ -401,6 +413,7 @@ def build_sheet2(main_df: pd.DataFrame) -> pd.DataFrame:
         main_df["품목명"].str.contains("KING콩|King콩", na=False)
     )
     for _, r in main_df[(main_df["_group"] == "원두") & ~king_mask].iterrows():
+
         name = re.sub(r"^\[커피 페스타 증정\]\s*", "", r["품목명"]).strip()
         rows[name] = rows.get(name, 0) + weight_to_gram(r["중량"]) * r["수량"]
     for _, r in main_df[main_df["_group"] == "스쿱세트"].iterrows():
@@ -409,6 +422,7 @@ def build_sheet2(main_df: pd.DataFrame) -> pd.DataFrame:
     for _, r in main_df[king_mask].iterrows():
         name = re.sub(r"^\[커피 페스타 1\+1\]\s*", "", r["품목명"]).strip()
         rows[name] = rows.get(name, 0) + 250 * r["수량"]
+
     return pd.DataFrame([{"품목명": n, "중량(kg)": round(g / 1000, 3)} for n, g in rows.items()])
 
 def apply_style(ws, df_with_groups: pd.DataFrame):
@@ -437,10 +451,10 @@ def apply_style(ws, df_with_groups: pd.DataFrame):
                 ws.cell(row=row_num, column=col_idx).border = THIN_BORDER
             row_num += 1
 
-        if is_set:              fill = set_fill
+        if is_set:         fill = set_fill
         elif group == "드립백":  fill = drip_fill
         elif group == "스쿱세트": fill = scoop_fill
-        else:                   fill = white_fill
+        else:              fill = white_fill
 
         values = [cur_name, r["중량"], r["옵션"], r["수량"], r.get("상품코드", "")]
         for col_idx, val in enumerate(values, 1):
@@ -486,6 +500,7 @@ def insert_sheet3_into_sheet1(wb: Workbook):
         ws1.cell(row=blank_row, column=col_idx).border = THIN_BORDER
 
 def postprocess_festa_rows(ws):
+    # ── 1순위: 커피 페스타 포함 행 하늘색 ──
     FILL_FESTA = PatternFill("solid", fgColor="DDEEFF")
     for row in ws.iter_rows():
         a_val = row[0].value
@@ -493,14 +508,13 @@ def postprocess_festa_rows(ws):
             for cell in row[:5]:
                 cell.fill = FILL_FESTA
 
+    # ── 2순위: 플러스쿠폰 행 녹색 (하늘색 위에 덮어씀) ──
     FILL_GREEN = PatternFill("solid", fgColor="C6EFCE")
     for row in ws.iter_rows():
         c_val = row[2].value
         if c_val and "플러스쿠폰" in str(c_val):
             for cell in row[:5]:
                 cell.fill = FILL_GREEN
-
-    FILL_BLANK = PatternFill("solid", fgColor=COLOR_WHITE)
 
     def insert_blank(ws, row_idx):
         ws.insert_rows(row_idx)
@@ -528,6 +542,7 @@ def postprocess_festa_rows(ws):
     def is_festa_item(a):
         return a and "[커피 페스타]" in str(a)
 
+    # ── 빈행 제거: 페스타 증정 원두 행 사이 빈행 제거 ──
     changed = True
     while changed:
         changed = False
@@ -545,6 +560,7 @@ def postprocess_festa_rows(ws):
                 changed = True
                 break
 
+    # ── 빈행 삽입: 아래서 위 순서로 ──
     rows_data = list(ws.iter_rows(values_only=True))
     to_insert = []
 
@@ -555,22 +571,30 @@ def postprocess_festa_rows(ws):
         curr_b = rows_data[i][1]
         if prev_a is None or curr_a is None:
             continue
+
+        # 1) 브라질 King콩 → 에티오피아 King콩
         if is_king_brazil(prev_a) and is_king_ethiopia(curr_a):
             to_insert.append(i + 1)
+        # 2) 에티오피아 King콩 → 증정 원두
         elif is_king_ethiopia(prev_a) and is_gift_bean(curr_a, curr_b):
             to_insert.append(i + 1)
+        # 3) 증정 원두 → 1+1 액상
         elif is_gift_bean(prev_a, prev_b) and is_festa_1p1_liquid(curr_a):
             to_insert.append(i + 1)
+        # 4) 1+1 액상 → 증정 액상
         elif is_festa_1p1_liquid(prev_a) and is_gift_liquid(curr_a, curr_b):
             to_insert.append(i + 1)
+        # 5) 증정 액상 → 다음 품목
         elif is_gift_liquid(prev_a, prev_b) and not is_gift_liquid(curr_a, curr_b):
             to_insert.append(i + 1)
+        # 6) [커피 페스타] 단독 품목 사이 (품목명 다를 때)
         elif is_festa_item(prev_a) and is_festa_item(curr_a) and str(prev_a) != str(curr_a):
             to_insert.append(i + 1)
 
     for idx in sorted(set(to_insert), reverse=True):
         insert_blank(ws, idx)
 
+    # ── 하늘색 채우기: 커피 페스타 포함 행 ──
     for row in ws.iter_rows():
         a_val = row[0].value
         if a_val and "커피 페스타" in str(a_val):
@@ -578,37 +602,10 @@ def postprocess_festa_rows(ws):
                 cell.fill = FILL_FESTA
 
 # ──────────────────────────────────────────────
-# 수량 변동 상세 내역 계산
-# ──────────────────────────────────────────────
-def build_qty_diff(original_df: pd.DataFrame, result_df: pd.DataFrame) -> pd.DataFrame:
-    """
-    원본 품목명 기준 수량 vs 결과 품목명 기준 수량을 비교하여
-    수량이 변동된 항목만 반환
-    """
-    orig = original_df.groupby("품목명_원본")["수량"].sum().reset_index()
-    orig.columns = ["품목명", "원본수량"]
-
-    res = result_df.groupby("품목명")["수량"].sum().reset_index()
-    res.columns = ["품목명", "결과수량"]
-
-    merged = pd.merge(orig, res, on="품목명", how="outer").fillna(0)
-    merged["원본수량"] = merged["원본수량"].astype(int)
-    merged["결과수량"] = merged["결과수량"].astype(int)
-    merged["차이"] = merged["결과수량"] - merged["원본수량"]
-
-    # 변동 있는 항목만
-    changed = merged[merged["차이"] != 0].copy()
-    changed = changed.sort_values("차이", ascending=False).reset_index(drop=True)
-    return changed
-
-# ──────────────────────────────────────────────
 # 메인 처리
 # ──────────────────────────────────────────────
-def process(order_file, code_file, set_config: dict):
+def process(order_file, code_file, set_config: dict) -> BytesIO:
     raw_df  = load_order_data(order_file)
-    original_qty_total = int(raw_df["수량"].sum())
-    original_df = raw_df.copy()  # 원본 보존 (품목명_원본, 수량)
-
     code_df = load_code_data(code_file)
     sheet3_df = build_sheet3(raw_df)
 
@@ -633,12 +630,16 @@ def process(order_file, code_file, set_config: dict):
     raw_df = clean_kingkong_options(raw_df)
     raw_df = merge_gratitude_month(raw_df)
 
+    # ★ 무료원두 쿠폰 치환 적용
     coupon_config = load_coupon_config()
     raw_df = expand_coupon_items(raw_df, coupon_config)
+
+    # ★ 세트 분리 적용
     raw_df = expand_set_items(raw_df, set_config)
 
     main_df = aggregate_and_sort(raw_df)
 
+    # _is_set_expanded 컬럼 집계 후 복원
     if "_is_set_expanded" in raw_df.columns:
         set_flags = raw_df.groupby(
             raw_df.apply(lambda r: (r["품목명"], r.get("중량",""), r.get("옵션","")), axis=1)
@@ -664,22 +665,14 @@ def process(order_file, code_file, set_config: dict):
     buf = BytesIO()
     wb.save(buf)
     buf.seek(0)
-
-    # 수량 변동 상세
-    qty_diff_df = build_qty_diff(original_df, main_df)
-
-    summary = {
-        "원본_총수량": original_qty_total,
-        "결과_총수량": int(main_df["수량"].sum()),
-        "변동내역": qty_diff_df,
-    }
-    return buf, summary
+    return buf
 
 # ──────────────────────────────────────────────
 # Streamlit UI
 # ──────────────────────────────────────────────
 st.set_page_config(page_title="테라로사 주문취합", page_icon="☕", layout="wide")
 
+# ─── CSS ───
 st.markdown("""
 <style>
 [data-testid="stSidebar"] { background: #FAF3F0; }
@@ -695,9 +688,24 @@ h2, h3 { color: #8B3A2A !important; }
     background: #8B3A2A; color: white; border: none;
     border-radius: 6px; font-weight: 600; width: 100%;
 }
+.set-card {
+    background: white; border: 1px solid #EDE5DC;
+    border-radius: 10px; padding: 14px 16px; margin-bottom: 12px;
+}
+.set-badge {
+    background: #F0DDD7; color: #8B3A2A; border-radius: 4px;
+    padding: 2px 8px; font-size: 12px; font-weight: 600;
+}
+.comp-row {
+    background: #FAF3F0; border-radius: 6px;
+    padding: 6px 10px; margin: 4px 0; font-size: 13px;
+    display: flex; justify-content: space-between;
+    color: #2C2C2C;
+}
 </style>
 """, unsafe_allow_html=True)
 
+# ─── 상태 초기화 ───
 if "set_config" not in st.session_state:
     st.session_state.set_config = load_set_config()
 if "editing_set" not in st.session_state:
@@ -709,8 +717,10 @@ if "editing_set" not in st.session_state:
 with st.sidebar:
     st.markdown("## ☕ 세트 상품 관리")
     st.caption("세트 상품을 구성 품목별로 분리합니다.")
+
     st.divider()
 
+    # ── 새 세트 추가 ──
     with st.expander("➕ 새 세트 상품 추가", expanded=False):
         new_set_name = st.text_input("세트 상품명", placeholder="예: 간편커피&유리머그 세트",
                                       key="new_set_name")
@@ -728,6 +738,7 @@ with st.sidebar:
 
     st.divider()
 
+    # ── 세트 목록 ──
     if not st.session_state.set_config:
         st.info("등록된 세트 상품이 없습니다.")
     else:
@@ -755,9 +766,12 @@ with st.sidebar:
                         save_set_config(st.session_state.set_config)
                         st.rerun()
 
+                # ── 구성 옵션 편집 패널 ──
                 if is_editing:
                     with st.container():
                         st.markdown(f"###### 구성 품목 — {set_name}")
+
+                        # 기존 구성 목록
                         for i, comp in enumerate(comps):
                             c1, c2, c3, c4, c5 = st.columns([1, 4, 2, 2, 1])
                             with c1:
@@ -783,9 +797,12 @@ with st.sidebar:
                                     comps.pop(i)
                                     save_set_config(st.session_state.set_config)
                                     st.rerun()
+
+                            # 실시간 저장
                             comps[i] = {"name": new_name, "qty": int(new_qty),
                                          "weight": new_weight, "option": new_option}
 
+                        # 새 구성 품목 추가
                         st.markdown("---")
                         na1, na2, na3, na4, na5 = st.columns([1, 4, 2, 2, 1])
                         with na1:
@@ -810,6 +827,7 @@ with st.sidebar:
                                     save_set_config(st.session_state.set_config)
                                     st.rerun()
 
+                        # 저장 버튼
                         if st.button("💾 저장", key=f"save_{set_name}", use_container_width=True):
                             save_set_config(st.session_state.set_config)
                             st.success("저장 완료!")
@@ -821,6 +839,7 @@ with st.sidebar:
 # ═══════════════════════════════════════════
 st.title("테라로사 자사몰 주문취합")
 
+# ── 세트 구성 현황 요약 ──
 if st.session_state.set_config:
     with st.expander(f"📦 세트 분리 설정 — {len(st.session_state.set_config)}개 등록됨", expanded=False):
         cols = st.columns(min(3, len(st.session_state.set_config)))
@@ -834,6 +853,7 @@ if st.session_state.set_config:
 
 st.divider()
 
+# ── 파일 업로드 ──
 col1, col2 = st.columns(2)
 with col1:
     order_file = st.file_uploader("📄 주문취합 Excel", type=["xlsx"],
@@ -844,49 +864,14 @@ with col2:
 
 st.divider()
 
+# ── 처리 및 다운로드 ──
 if order_file and code_file:
     if st.button("🚀 주문 취합 처리 시작", use_container_width=True):
         with st.spinner("처리 중..."):
             try:
-                result_buf, summary = process(order_file, code_file, st.session_state.set_config)
+                result_buf = process(order_file, code_file, st.session_state.set_config)
                 today = datetime.today().strftime("%Y%m%d")
                 st.success("✅ 처리 완료!")
-
-                # ── 수량 검증 요약 ──
-                orig = summary["원본_총수량"]
-                res  = summary["결과_총수량"]
-                diff = res - orig
-                col_a, col_b, col_c = st.columns(3)
-                col_a.metric("원본 총 수량", f"{orig:,}개")
-                col_b.metric("결과 총 수량", f"{res:,}개")
-                if diff == 0:
-                    col_c.metric("차이", "0 ✅")
-                else:
-                    col_c.metric("차이", f"{diff:+,}개")
-
-                # ── 수량 변동 상세 내역 ──
-                qty_diff = summary["변동내역"]
-                if not qty_diff.empty:
-                    with st.expander(f"📊 수량 변동 상세 내역 — {len(qty_diff)}개 품목", expanded=True):
-                        increased = qty_diff[qty_diff["차이"] > 0]
-                        decreased = qty_diff[qty_diff["차이"] < 0]
-                        new_items = qty_diff[qty_diff["원본수량"] == 0]
-
-                        if not increased.empty:
-                            st.markdown("**↑ 수량 증가 (분리/치환으로 늘어난 항목)**")
-                            display_df = increased[["품목명", "원본수량", "결과수량", "차이"]].copy()
-                            display_df["차이"] = display_df["차이"].apply(lambda x: f"+{x}")
-                            st.dataframe(display_df, use_container_width=True, hide_index=True)
-
-                        if not new_items.empty:
-                            st.markdown("**🆕 신규 생성 (원본에 없던 항목)**")
-                            display_df = new_items[["품목명", "결과수량"]].copy()
-                            st.dataframe(display_df, use_container_width=True, hide_index=True)
-
-                        if not decreased.empty:
-                            st.markdown("**↓ 수량 감소**")
-                            display_df = decreased[["품목명", "원본수량", "결과수량", "차이"]].copy()
-                            st.dataframe(display_df, use_container_width=True, hide_index=True)
 
                 set_count = len(st.session_state.set_config)
                 if set_count:
@@ -905,14 +890,15 @@ if order_file and code_file:
 else:
     st.info("👆 주문취합 파일과 상품코드 파일을 모두 업로드하면 처리 버튼이 활성화됩니다.")
 
+# ── 하단 안내 ──
 with st.expander("ℹ️ 사용 방법"):
     st.markdown("""
 **세트 상품 분리 설정**
 1. 왼쪽 사이드바 → **세트 상품 관리** 에서 세트명 추가
 2. 편집 버튼으로 구성 품목(품목명, 수량, 중량, 옵션) 입력 후 저장
-3. 설정은 자동 저장 → 다음 실행에도 유지
+3. 설정은 `set_config.json`에 자동 저장 → 다음 실행에도 유지
 
 **처리 결과**
 - 세트 분리된 행은 주문취합 시트에서 **하늘색**으로 표시됩니다
-- 처리 완료 후 원본/결과 수량 비교 및 변동 상세 내역이 자동으로 표시됩니다
+- 세트 1개 주문 × 구성 수량으로 자동 계산됩니다
 """)
