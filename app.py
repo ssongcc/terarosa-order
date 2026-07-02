@@ -244,7 +244,7 @@ def split_item(raw_name: str):
         return [
             ("[7월 KING콩] 코스타리카 치리포 리카르도 카투아이 허니",
              "500g", "플러스쿠폰"
-             ]
+            )
 
     if "이 달의 드립백" in raw_name or "이달의 드립백" in raw_name:
         if "_" in raw_name:
