@@ -601,7 +601,6 @@ def build_das_excel(upload_df, line_df, seed_df, stats):
     thin=Side(style='thin',color=STONE); B=Border(left=thin,right=thin,top=thin,bottom=thin)
     buf = BytesIO()
     with pd.ExcelWriter(buf, engine='openpyxl') as w:
-        upload_df.to_excel(w, sheet_name='우체국업로드용', index=False)
         line_df.to_excel(w, sheet_name='줄포장(단일주문)', index=False)
         seed_df.to_excel(w, sheet_name='씨딩지시(복합주문)', index=False)
         pd.DataFrame([stats]).to_excel(w, sheet_name='요약', index=False)
@@ -623,7 +622,6 @@ def build_das_excel(upload_df, line_df, seed_df, stats):
             for c in ws[r]:
                 c.font=Font(name='맑은 고딕',size=9,color='6B6056' if slot else CH); c.border=B
                 c.fill=PatternFill('solid',start_color=PEAK if slot else (CREAM if band else OFF))
-    for c in wb['우체국업로드용'][1]: c.font=Font(name='맑은 고딕',bold=True,size=9)
     out = BytesIO(); wb.save(out); out.seek(0)
     return out
 
