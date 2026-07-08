@@ -878,23 +878,23 @@ with tab2:
                     key="dl_guide"
                 )
                 st.caption("줄포장 리스트 / 씨딩지시 / 요약")
-            # 배치별 씨딩 전송 버튼 (로컬 전용 — 개인정보 없는 씨딩 데이터만 GitHub에 전송)
+            # 전체 씨딩 데이터 한 번에 전송 (로컬 전용 — 개인정보 없는 씨딩 데이터만 GitHub에 전송)
             if "seed_sku_rows" in r:
                 st.divider()
                 st.markdown("**📱 태블릿 씨딩 화면으로 전송**")
                 st.caption("SKU명·칸번호·수량만 전송됩니다. 개인정보는 포함되지 않습니다.")
-                seed_df_r = r["seed_df"]
-                batches = [b for b in seed_df_r['배치'].unique()]
-                cols_b = st.columns(len(batches))
-                for i, b in enumerate(batches):
-                    with cols_b[i]:
-                        if st.button(f"📦 배치 {b} 씨딩 전송", key=f"btn_seed_b{b}", use_container_width=True):
-                            b_skus = [row for row in r["seed_sku_rows"] if row['배치'] == b]
-                            ok = gh_save("das_session.json", {"batch": int(b), "skus": b_skus})
-                            if ok:
-                                st.success(f"✅ 배치 {b} 전송 완료! 태블릿에서 '최신 데이터 불러오기'를 누르세요.")
-                            else:
-                                st.error("❌ 전송 실패. GitHub 연결을 확인하세요.")
+                if st.button("📦 전체 씨딩 데이터 전송", use_container_width=True, key="btn_seed_all"):
+                    seed_df_r = r["seed_df"]
+                    batches = sorted(seed_df_r['배치'].unique())
+                    all_batches = {}
+                    for b in batches:
+                        b_skus = [row for row in r["seed_sku_rows"] if row['배치'] == b]
+                        all_batches[str(int(b))] = b_skus
+                    ok = gh_save("das_session.json", {"batches": all_batches, "batch_list": [int(b) for b in batches]})
+                    if ok:
+                        st.success(f"✅ 전체 {len(batches)}개 배치 전송 완료! 태블릿에서 '최신 데이터 불러오기'를 누르세요.")
+                    else:
+                        st.error("❌ 전송 실패. GitHub 연결을 확인하세요.")
 
             with st.expander("씨딩지시 미리보기", expanded=False):
                 st.dataframe(r["seed_df"], use_container_width=True, height=400)
