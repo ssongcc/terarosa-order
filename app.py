@@ -791,6 +791,10 @@ with tab2:
         batch_size = st.number_input("선반 칸수", min_value=8, max_value=200, value=40, step=1,
                                       help="DAS 선반 슬롯 수 (기본 40)")
 
+    # 결과 session_state 초기화
+    if "das_result" not in st.session_state:
+        st.session_state.das_result = None
+
     if das_file:
         # 파일 검증
         try:
@@ -810,54 +814,60 @@ with tab2:
             with st.spinner("처리 중..."):
                 try:
                     upload_df, line_df, seed_df, stats, _ = das_run(df_das, batch_size=int(batch_size))
-
-                    # 요약 카드
-                    st.success("✅ 처리 완료! 검증 3종 통과")
-                    c1, c2, c3, c4, c5 = st.columns(5)
-                    c1.metric("총 주문", stats['총주문'])
-                    c2.metric("줄포장", stats['단일'])
-                    c3.metric("씨딩(복합)", stats['복합'])
-                    c4.metric("배치 수", stats['배치수'])
-                    c5.metric("SKU 방문", stats['씨딩SKU방문'])
-
-                    st.divider()
                     today = datetime.today().strftime("%m%d_%H%M")
                     das_buf = build_das_excel(upload_df, line_df, seed_df, stats)
-
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        # 업로드용: 원본 데이터 그대로 엑셀로
-                        up_buf = BytesIO()
-                        upload_df.to_excel(up_buf, index=False)
-                        up_buf.seek(0)
-                        st.download_button(
-                            label="⬇️ ①업로드용 정렬본 다운로드",
-                            data=up_buf,
-                            file_name=f"①업로드용_정렬본_{today}.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            use_container_width=True,
-                            key="dl_upload"
-                        )
-                        st.caption("우체국 사이트에 그대로 업로드")
-                    with col2:
-                        st.download_button(
-                            label="⬇️ ②작업지시서 다운로드",
-                            data=das_buf,
-                            file_name=f"②작업지시서_{today}.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            use_container_width=True,
-                            key="dl_guide"
-                        )
-                        st.caption("줄포장 리스트 / 씨딩지시 / 요약")
-
-                    # 씨딩지시 미리보기
-                    with st.expander("씨딩지시 미리보기", expanded=False):
-                        st.dataframe(seed_df, use_container_width=True, height=400)
-
+                    up_buf = BytesIO()
+                    upload_df.to_excel(up_buf, index=False)
+                    up_buf.seek(0)
+                    # 결과를 session_state에 저장
+                    st.session_state.das_result = {
+                        "stats": stats,
+                        "up_buf": up_buf.getvalue(),
+                        "das_buf": das_buf.getvalue(),
+                        "seed_df": seed_df,
+                        "today": today,
+                    }
                 except Exception as e:
                     st.error(f"❌ 오류 발생: {e}")
                     st.exception(e)
+
+        # 결과가 있으면 항상 표시 (다운로드 버튼 눌러도 사라지지 않음)
+        if st.session_state.das_result:
+            r = st.session_state.das_result
+            stats = r["stats"]
+            st.success("✅ 처리 완료! 검증 3종 통과")
+            c1, c2, c3, c4, c5 = st.columns(5)
+            c1.metric("총 주문", stats['총주문'])
+            c2.metric("줄포장", stats['단일'])
+            c3.metric("씨딩(복합)", stats['복합'])
+            c4.metric("배치 수", stats['배치수'])
+            c5.metric("SKU 방문", stats['씨딩SKU방문'])
+            st.divider()
+            col1, col2 = st.columns(2)
+            with col1:
+                st.download_button(
+                    label="⬇️ ①업로드용 정렬본 다운로드",
+                    data=r["up_buf"],
+                    file_name=f"①업로드용_정렬본_{r['today']}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                    key="dl_upload"
+                )
+                st.caption("우체국 사이트에 그대로 업로드")
+            with col2:
+                st.download_button(
+                    label="⬇️ ②작업지시서 다운로드",
+                    data=r["das_buf"],
+                    file_name=f"②작업지시서_{r['today']}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                    key="dl_guide"
+                )
+                st.caption("줄포장 리스트 / 씨딩지시 / 요약")
+            with st.expander("씨딩지시 미리보기", expanded=False):
+                st.dataframe(r["seed_df"], use_container_width=True, height=400)
     else:
+        st.session_state.das_result = None
         st.info("👆 택배용 발송양식 파일을 업로드하면 처리 버튼이 활성화됩니다.")
 
     with st.expander("ℹ️ 분배모드 사용법"):
