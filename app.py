@@ -829,16 +829,8 @@ with tab2:
                     upload_df.to_excel(up_buf, index=False)
                     up_buf.seek(0)
 
-                    # 씨딩 데이터 GitHub 저장 (태블릿 화면용)
+                    # 씨딩 데이터 추출 (개인정보 없음 — SKU/칸번호/수량만)
                     seed_sku_rows = seed_df[~seed_df['SKU'].astype(str).str.startswith('[칸배정]')].to_dict('records')
-                    if _USE_GITHUB:
-                        try:
-                            for b in seed_df['배치'].unique():
-                                b_skus = [r for r in seed_sku_rows if r['배치'] == b]
-                                gh_save(f"das_session_batch{int(b)}.json", {"batch": int(b), "skus": b_skus})
-                            gh_save("das_session.json", {"batch": int(seed_df['배치'].min()), "skus": [r for r in seed_sku_rows if r['배치'] == seed_df['배치'].min()]})
-                        except Exception:
-                            pass
 
                     # 결과를 session_state에 저장
                     st.session_state.das_result = {
@@ -886,19 +878,23 @@ with tab2:
                     key="dl_guide"
                 )
                 st.caption("줄포장 리스트 / 씨딩지시 / 요약")
-            # 배치별 씨딩 시작 버튼
-            if _USE_GITHUB and "seed_sku_rows" in r:
+            # 배치별 씨딩 전송 버튼 (로컬 전용 — 개인정보 없는 씨딩 데이터만 GitHub에 전송)
+            if "seed_sku_rows" in r:
                 st.divider()
                 st.markdown("**📱 태블릿 씨딩 화면으로 전송**")
+                st.caption("SKU명·칸번호·수량만 전송됩니다. 개인정보는 포함되지 않습니다.")
                 seed_df_r = r["seed_df"]
                 batches = [b for b in seed_df_r['배치'].unique()]
                 cols_b = st.columns(len(batches))
                 for i, b in enumerate(batches):
                     with cols_b[i]:
-                        if st.button(f"📦 배치 {b} 씨딩 시작", key=f"btn_seed_b{b}", use_container_width=True):
+                        if st.button(f"📦 배치 {b} 씨딩 전송", key=f"btn_seed_b{b}", use_container_width=True):
                             b_skus = [row for row in r["seed_sku_rows"] if row['배치'] == b]
-                            gh_save("das_session.json", {"batch": int(b), "skus": b_skus})
-                            st.success(f"✅ 배치 {b} 씨딩 데이터 전송 완료! 태블릿에서 새로고침하세요.")
+                            ok = gh_save("das_session.json", {"batch": int(b), "skus": b_skus})
+                            if ok:
+                                st.success(f"✅ 배치 {b} 전송 완료! 태블릿에서 '최신 데이터 불러오기'를 누르세요.")
+                            else:
+                                st.error("❌ 전송 실패. GitHub 연결을 확인하세요.")
 
             with st.expander("씨딩지시 미리보기", expanded=False):
                 st.dataframe(r["seed_df"], use_container_width=True, height=400)
