@@ -2,7 +2,6 @@
 테라로사 DAS 씨딩 화면 (태블릿용)
 Galaxy Tab A8 (10.5") 최적화
 """
-import json
 import streamlit as st
 from github_storage import gh_load, gh_save
 
@@ -15,9 +14,8 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-/* 태블릿 터치 최적화 */
 section[data-testid="stSidebar"] { display: none; }
-.block-container { padding: 1rem 1.5rem !important; max-width: 100% !important; }
+.block-container { padding: 3.5rem 1.5rem 1rem 1.5rem !important; max-width: 100% !important; }
 
 .sku-card {
     background: #FAF3F0;
@@ -64,7 +62,6 @@ section[data-testid="stSidebar"] { display: none; }
     background: #8B3A2A;
     height: 100%;
     border-radius: 8px;
-    transition: width 0.3s;
 }
 .batch-badge {
     background: #C4644A;
@@ -93,28 +90,29 @@ section[data-testid="stSidebar"] { display: none; }
 }
 .btn-prev > button { background: #EDE5DC !important; color: #2C2C2C !important; }
 .btn-next > button { background: #8B3A2A !important; color: white !important; }
-.btn-next > button:hover { background: #C4644A !important; }
+.btn-batch > button { background: #EDE5DC !important; color: #8B3A2A !important; font-size: 1rem !important; padding: 10px 0 !important; }
 .btn-restart > button { background: #6B6056 !important; color: white !important; }
+.btn-load > button { background: #C4644A !important; color: white !important; font-size: 1rem !important; padding: 10px 0 !important; }
 </style>
 """, unsafe_allow_html=True)
 
 # ── 세션 초기화 ──
-for k, v in [("seed_skus", []), ("seed_batch", 0), ("seed_idx", 0), ("seed_loaded", False)]:
+for k, v in [("all_batches", {}), ("batch_list", []), ("cur_batch", None), ("seed_idx", 0), ("loaded", False)]:
     if k not in st.session_state:
         st.session_state[k] = v
 
 def load_session():
     data = gh_load("das_session.json", None)
-    if data and isinstance(data, dict) and "skus" in data:
-        st.session_state.seed_skus   = data["skus"]
-        st.session_state.seed_batch  = data.get("batch", 0)
+    if data and isinstance(data, dict) and "batches" in data:
+        st.session_state.all_batches = {str(k): v for k, v in data["batches"].items()}
+        st.session_state.batch_list  = data.get("batch_list", [])
+        st.session_state.cur_batch   = str(st.session_state.batch_list[0]) if st.session_state.batch_list else None
         st.session_state.seed_idx    = 0
-        st.session_state.seed_loaded = True
+        st.session_state.loaded      = True
         return True
     return False
 
 def parse_slots(분배_str):
-    """'3번칸×2, 7번칸' 형태 파싱 → [(칸번호, 수량), ...]"""
     slots = []
     for part in str(분배_str).split(","):
         part = part.strip()
@@ -130,51 +128,73 @@ col_h1, col_h2 = st.columns([5, 2])
 with col_h1:
     st.markdown("## 📦 씨딩 작업 화면")
 with col_h2:
+    st.markdown('<div class="btn-load">', unsafe_allow_html=True)
     if st.button("🔄 최신 데이터 불러오기", key="btn_load"):
         if load_session():
             st.rerun()
         else:
             st.error("저장된 씨딩 데이터가 없습니다. PC에서 분배모드를 먼저 실행해주세요.")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 st.divider()
 
 # ── 데이터 없을 때 ──
-if not st.session_state.seed_loaded or not st.session_state.seed_skus:
-    st.info("👆 PC에서 분배모드 처리 후 '씨딩 시작' 버튼을 누르면 여기에 작업이 나타납니다.")
+if not st.session_state.loaded or not st.session_state.all_batches:
+    st.info("👆 PC에서 분배모드 처리 후 '전체 씨딩 데이터 전송' 버튼을 누르면 여기에 작업이 나타납니다.")
     st.stop()
 
-skus    = st.session_state.seed_skus
-batch   = st.session_state.seed_batch
-idx     = st.session_state.seed_idx
-total   = len(skus)
+# ── 배치 선택 탭 ──
+batch_list = st.session_state.batch_list
+cur_batch  = st.session_state.cur_batch
+
+st.markdown("**배치 선택**")
+cols_b = st.columns(len(batch_list))
+for i, b in enumerate(batch_list):
+    with cols_b[i]:
+        is_cur = str(b) == str(cur_batch)
+        label = f"✅ 배치 {b}" if is_cur else f"배치 {b}"
+        st.markdown('<div class="btn-batch">', unsafe_allow_html=True)
+        if st.button(label, key=f"sel_batch_{b}", use_container_width=True):
+            st.session_state.cur_batch = str(b)
+            st.session_state.seed_idx  = 0
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
+st.divider()
+
+# ── 현재 배치 SKU 목록 ──
+skus  = st.session_state.all_batches.get(str(cur_batch), [])
+idx   = st.session_state.seed_idx
+total = len(skus)
+
+if total == 0:
+    st.warning("이 배치에 씨딩할 SKU가 없습니다.")
+    st.stop()
 
 # ── 전체 완료 ──
 if idx >= total:
     st.markdown(f"""
     <div class="done-box">
         <div style="font-size:3rem">🎉</div>
-        <div style="font-size:1.8rem; font-weight:800; color:#388E3C; margin:12px 0">배치 {batch} 씨딩 완료!</div>
+        <div style="font-size:1.8rem; font-weight:800; color:#388E3C; margin:12px 0">배치 {cur_batch} 씨딩 완료!</div>
         <div style="font-size:1.1rem; color:#6B6056">총 {total}개 SKU 처리</div>
     </div>
     """, unsafe_allow_html=True)
     st.markdown("")
-    with st.container():
-        st.markdown('<div class="btn-restart">', unsafe_allow_html=True)
-        if st.button("↩️ 처음부터 다시", key="btn_restart"):
-            st.session_state.seed_idx = 0
-            st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('<div class="btn-restart">', unsafe_allow_html=True)
+    if st.button("↩️ 처음부터 다시", key="btn_restart"):
+        st.session_state.seed_idx = 0
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 
 # ── 현재 SKU ──
-sku = skus[idx]
+sku   = skus[idx]
 slots = parse_slots(sku.get("분배", ""))
-pct = int(idx / total * 100)
+pct   = int(idx / total * 100)
 
-# 배치 배지
-st.markdown(f'<div class="batch-badge">배치 {batch}</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="batch-badge">배치 {cur_batch}</div>', unsafe_allow_html=True)
 
-# 진행률
 st.markdown(f"""
 <div style="display:flex; justify-content:space-between; color:#6B6056; font-size:0.95rem;">
     <span>진행 {idx} / {total}</span><span>{pct}%</span>
@@ -184,7 +204,6 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# SKU 카드
 slot_chips = "".join(
     f'<div class="slot-chip">{칸} &nbsp;×{수량}</div>' if 수량 > 1
     else f'<div class="slot-chip">{칸}</div>'
@@ -192,8 +211,8 @@ slot_chips = "".join(
 )
 st.markdown(f"""
 <div class="sku-card">
-    <div class="sku-name">🫘 {sku['SKU']}</div>
-    <div class="sku-total">총 {sku['총수량']}개 뿌리기</div>
+    <div class="sku-name">🫘 {sku.get('SKU','')}</div>
+    <div class="sku-total">총 {sku.get('총수량','')}개 뿌리기</div>
     <div class="slot-grid">{slot_chips}</div>
 </div>
 """, unsafe_allow_html=True)
