@@ -59,20 +59,31 @@ WEIGHT_PATTERN = re.compile(r"(\d+(?:\.\d+)?\s*(?:kg|g))", re.IGNORECASE)
 # 설정 로드/저장
 # ──────────────────────────────────────────────
 def load_set_config() -> dict:
-    if _USE_GITHUB:
-        return gh_load("set_config.json", {})
+    # 로컬 파일 우선 (Cloud/로컬 공통)
     if CONFIG_PATH.exists():
         try:
             return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
         except Exception:
             pass
+    if _USE_GITHUB:
+        try:
+            return gh_load("set_config.json", {})
+        except Exception:
+            pass
     return {}
 
 def save_set_config(cfg: dict):
-    if _USE_GITHUB:
-        gh_save("set_config.json", cfg)
-    else:
+    # 로컬 파일에 항상 저장
+    try:
         CONFIG_PATH.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception:
+        pass
+    # GitHub에도 저장 (Cloud 환경)
+    if _USE_GITHUB:
+        try:
+            gh_save("set_config.json", cfg)
+        except Exception:
+            pass
 
 # ──────────────────────────────────────────────
 # 세트/쿠폰 로직 (기존 그대로)
