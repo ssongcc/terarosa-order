@@ -1099,6 +1099,16 @@ with tab2:
                         )
                         bag_s = int(seed_df_r[mask_base & seed_df_r['SKU'].str.contains('10개입', na=False)]['총수량'].sum())
                         bag_l = int(seed_df_r[mask_base & seed_df_r['SKU'].str.contains('30개입', na=False)]['총수량'].sum())
+                        # 배치 시트와 동일한 정렬 (세트→기타→드립백→스쿱세트→원두)
+                        df_b = pd.DataFrame(b_rows)
+                        df_b = df_b.groupby(['품목명','중량','옵션'], sort=False, as_index=False)['수량'].sum()
+                        df_b['_group'] = df_b.apply(lambda r: classify({'품목명': r['품목명'], '중량': r['중량']}), axis=1)
+                        df_b['_g_order'] = df_b['_group'].map(GROUP_ORDER)
+                        df_b['_w_gram']  = df_b['중량'].apply(weight_to_gram)
+                        df_b = df_b.sort_values(['_g_order','품목명','_w_gram','옵션'],
+                                                ascending=[True,True,False,True]).drop(columns=['_group','_g_order','_w_gram'])
+                        b_rows = df_b.to_dict('records')
+                        # 쇼핑백은 맨 앞에 삽입
                         if bag_l: b_rows.insert(0, {'품목명':'쇼핑백(대) 필요','중량':'','옵션':'','수량': bag_l})
                         if bag_s: b_rows.insert(0, {'품목명':'쇼핑백(소) 필요','중량':'','옵션':'','수량': bag_s})
                         all_prep[str(int(b))] = b_rows
