@@ -1077,44 +1077,36 @@ with tab2:
                     else:
                         st.error("❌ 전송 실패. GitHub 연결을 확인하세요.")
 
-                # 배치별 품목 준비 전송
-                st.markdown("**배치별 품목 준비 전송**")
-                st.caption("배치 버튼을 누르면 해당 배치의 품목·수량을 태블릿에서 확인할 수 있습니다.")
-                seed_df_r = r["seed_df"]
-                batches = sorted(seed_df_r['배치'].unique())
-                cols_prep = st.columns(len(batches))
-                for i, b in enumerate(batches):
-                    with cols_prep[i]:
-                        if st.button(f"📋 배치{int(b)}_SKU 전송", use_container_width=True, key=f"btn_prep_b{b}"):
-                            b_rows = []
-                            for _, row in seed_df_r[
-                                (seed_df_r['배치']==b) &
-                                (~seed_df_r['SKU'].astype(str).str.startswith('[칸배정]'))
-                            ].iterrows():
-                                name, weight, option = _parse_sku_app(str(row['SKU']))
-                                b_rows.append({'품목명': name, '중량': weight, '옵션': option, '수량': int(row['총수량'])})
-                            # 쇼핑백 추가
-                            bag_s = sum(row['총수량'] for _, row in seed_df_r[
-                                (seed_df_r['배치']==b) &
-                                (~seed_df_r['SKU'].astype(str).str.startswith('[칸배정]')) &
-                                (seed_df_r['SKU'].str.contains('드립백', na=False)) &
-                                (seed_df_r['SKU'].str.contains('필요', na=False)) &
-                                (seed_df_r['SKU'].str.contains('10개입', na=False))
-                            ].iterrows())
-                            bag_l = sum(row['총수량'] for _, row in seed_df_r[
-                                (seed_df_r['배치']==b) &
-                                (~seed_df_r['SKU'].astype(str).str.startswith('[칸배정]')) &
-                                (seed_df_r['SKU'].str.contains('드립백', na=False)) &
-                                (seed_df_r['SKU'].str.contains('필요', na=False)) &
-                                (seed_df_r['SKU'].str.contains('30개입', na=False))
-                            ].iterrows())
-                            if bag_s: b_rows.insert(0, {'품목명':'쇼핑백(소) 필요','중량':'','옵션':'','수량': int(bag_s)})
-                            if bag_l: b_rows.insert(0 if not bag_s else 1, {'품목명':'쇼핑백(대) 필요','중량':'','옵션':'','수량': int(bag_l)})
-                            ok = gh_save("das_prep.json", {"batch": int(b), "items": b_rows})
-                            if ok:
-                                st.success(f"✅ 배치{int(b)} 품목 전송 완료! 태블릿 씨딩 화면 → '품목 준비' 탭에서 확인하세요.")
-                            else:
-                                st.error("❌ 전송 실패.")
+                # 전체 배치 품목 준비 한 번에 전송
+                if st.button("📋 전체 배치 품목 준비 전송", use_container_width=True, key="btn_prep_all"):
+                    seed_df_r = r["seed_df"]
+                    batches = sorted(seed_df_r['배치'].unique())
+                    all_prep = {}
+                    for b in batches:
+                        b_rows = []
+                        for _, row in seed_df_r[
+                            (seed_df_r['배치']==b) &
+                            (~seed_df_r['SKU'].astype(str).str.startswith('[칸배정]'))
+                        ].iterrows():
+                            name, weight, option = _parse_sku_app(str(row['SKU']))
+                            b_rows.append({'품목명': name, '중량': weight, '옵션': option, '수량': int(row['총수량'])})
+                        # 쇼핑백 추가
+                        mask_base = (
+                            (seed_df_r['배치']==b) &
+                            (~seed_df_r['SKU'].astype(str).str.startswith('[칸배정]')) &
+                            seed_df_r['SKU'].str.contains('드립백', na=False) &
+                            seed_df_r['SKU'].str.contains('필요', na=False)
+                        )
+                        bag_s = int(seed_df_r[mask_base & seed_df_r['SKU'].str.contains('10개입', na=False)]['총수량'].sum())
+                        bag_l = int(seed_df_r[mask_base & seed_df_r['SKU'].str.contains('30개입', na=False)]['총수량'].sum())
+                        if bag_l: b_rows.insert(0, {'품목명':'쇼핑백(대) 필요','중량':'','옵션':'','수량': bag_l})
+                        if bag_s: b_rows.insert(0, {'품목명':'쇼핑백(소) 필요','중량':'','옵션':'','수량': bag_s})
+                        all_prep[str(int(b))] = b_rows
+                    ok = gh_save("das_prep.json", {"batch_list": [int(b) for b in batches], "all_prep": all_prep})
+                    if ok:
+                        st.success(f"✅ 전체 {len(batches)}개 배치 품목 전송 완료! 태블릿 '품목 준비' 탭에서 확인하세요.")
+                    else:
+                        st.error("❌ 전송 실패.")
 
             with st.expander("씨딩지시 미리보기", expanded=False):
                 st.dataframe(r["seed_df"], use_container_width=True, height=400)
