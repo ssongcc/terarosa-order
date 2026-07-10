@@ -664,6 +664,8 @@ def build_das_excel(upload_df, line_df, seed_df, stats):
             name, weight, option = parse_sku(r['SKU'])
             rows.append({'품목명': name, '중량': weight, '옵션': option, '수량': r['총수량']})
         df_b = pd.DataFrame(rows)
+        # 동일 품목명+중량+옵션 합산
+        df_b = df_b.groupby(['품목명','중량','옵션'], sort=False, as_index=False)['수량'].sum()
         # 주문취합과 동일한 정렬: 세트→기타→드립백→스쿱세트→원두, 품목명→중량 내림→옵션
         df_b['_group'] = df_b.apply(lambda r: classify({'품목명': r['품목명'], '중량': r['중량']}), axis=1)
         df_b['_g_order'] = df_b['_group'].map(GROUP_ORDER)
