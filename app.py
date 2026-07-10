@@ -595,6 +595,30 @@ def process(order_file, code_file, set_config):
 # ──────────────────────────────────────────────
 # 분배모드 결과 → 엑셀 BytesIO
 # ──────────────────────────────────────────────
+def _parse_sku_app(sku):
+    """배치 SKU 시트 및 품목준비 전송용 파싱 함수 (모듈 레벨)"""
+    import re as _re
+    WP = _re.compile(r'(\d+(?:\.\d+)?\s*(?:kg|g))', _re.IGNORECASE)
+    RM = ['/필요','필요','/불필요','불필요','/구매 안함','구매 안함','/플러스','플러스']
+    sku = str(sku).strip(); clean = sku
+    for rm in RM:
+        if clean.endswith(rm): clean = clean[:-len(rm)].strip().strip('/')
+    if '드립백' in clean:
+        if '_' in clean:
+            n, r = clean.split('_', 1); r = r.strip().strip('/')
+            for rm in RM: r = r.replace(rm, '').strip().strip('/')
+            return n.strip(), '', r
+        return clean, '', ''
+    if '_' in clean:
+        n, r = clean.split('_', 1); m = WP.search(r)
+        if m:
+            w = m.group(1).replace(' ', '')
+            o = (r[:m.start()] + r[m.end():]).strip().strip('/')
+        else: w = ''; o = r.strip()
+    else: n = clean; w = ''; o = ''
+    for rm in RM: o = o.replace(rm, '').strip().strip('/')
+    return n.strip(), w, o
+
 def build_das_excel(upload_df, line_df, seed_df, stats):
     import re as _re
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -1062,17 +1086,12 @@ with tab2:
                 for i, b in enumerate(batches):
                     with cols_prep[i]:
                         if st.button(f"📋 배치{int(b)}_SKU 전송", use_container_width=True, key=f"btn_prep_b{b}"):
-                            # 배치 SKU 시트 데이터를 그대로 활용
                             b_rows = []
                             for _, row in seed_df_r[
                                 (seed_df_r['배치']==b) &
                                 (~seed_df_r['SKU'].astype(str).str.startswith('[칸배정]'))
                             ].iterrows():
-                                from das_distribution import _parse_sku_for_sheet as _psk
-                                try:
-                                    name, weight, option = _psk(str(row['SKU']))
-                                except:
-                                    name = str(row['SKU']); weight=''; option=''
+                                name, weight, option = _parse_sku_app(str(row['SKU']))
                                 b_rows.append({'품목명': name, '중량': weight, '옵션': option, '수량': int(row['총수량'])})
                             # 쇼핑백 추가
                             bag_s = sum(row['총수량'] for _, row in seed_df_r[
