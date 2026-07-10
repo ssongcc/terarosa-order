@@ -606,8 +606,26 @@ def build_das_excel(upload_df, line_df, seed_df, stats):
 
     def parse_sku(sku):
         sku = str(sku).strip()
-        if '_' in sku:
-            name, rest = sku.split('_', 1)
+        # 불필요 문자 제거 (파싱 전)
+        STRIP_SUFFIX = ['/필요', '필요', '/불필요', '불필요', '/구매 안함', '구매 안함',
+                        '/플러스', '플러스']
+        clean = sku
+        for rm in STRIP_SUFFIX:
+            if clean.endswith(rm):
+                clean = clean[:-len(rm)].strip().strip('/')
+        # 드립백: _ 뒤 전체가 옵션(B열), 중량 없음
+        if '드립백' in clean:
+            if '_' in clean:
+                name, rest = clean.split('_', 1)
+                rest = rest.strip().strip('/')
+                # 맛 구성 뒤에 붙은 /필요 등 제거
+                for rm in STRIP_SUFFIX:
+                    rest = rest.replace(rm, '').strip().strip('/')
+                return name.strip(), rest, ''  # B열=맛구성, C열=공백
+            return clean, '', ''
+        # 일반 상품: 중량 추출
+        if '_' in clean:
+            name, rest = clean.split('_', 1)
             m = WP.search(rest)
             if m:
                 weight = m.group(1).replace(' ', '')
@@ -615,10 +633,27 @@ def build_das_excel(upload_df, line_df, seed_df, stats):
             else:
                 weight = ''; option = rest.strip()
         else:
-            name = sku; weight = ''; option = ''
-        for rm in RM:
+            name = clean; weight = ''; option = ''
+        # 옵션 불필요 문자 제거
+        for rm in STRIP_SUFFIX:
             option = option.replace(rm, '').strip().strip('/')
         return name.strip(), weight, option
+
+    # 배치별 주문 건수 (칸배정 행에서 추출)
+    slot_rows = seed_df[seed_df['SKU'].astype(str).str.startswith('[칸배정]')].copy()
+    batch_order_counts = slot_rows.groupby('배치').size().to_dict()
+
+    # 배치별 송장 순번 범위 추출
+    def _get_serials(분배_str):
+        import re as _re2
+        m = _re2.search(r'송장순번\s*(\d+)', str(분배_str))
+        return int(m.group(1)) if m else None
+
+    batch_serial_ranges = {}
+    for batch, grp in slot_rows.groupby('배치'):
+        serials = grp['분배'].apply(_get_serials).dropna().astype(int)
+        if not serials.empty:
+            batch_serial_ranges[batch] = (int(serials.min()), int(serials.max()))
 
     # 배치별 SKU 데이터
     sku_rows = seed_df[~seed_df['SKU'].astype(str).str.startswith('[칸배정]')].copy()
@@ -669,15 +704,31 @@ def build_das_excel(upload_df, line_df, seed_df, stats):
     for batch in sorted(sku_rows['배치'].unique()):
         sname = f'배치{int(batch)}_SKU'
         if sname not in wb.sheetnames: continue
-        ws_b = wb[sname]; ws_b.sheet_view.showGridLines=False; ws_b.freeze_panes='A2'
+        ws_b = wb[sname]; ws_b.sheet_view.showGridLines=False
         ws_b.column_dimensions['A'].width=42; ws_b.column_dimensions['B'].width=10
         ws_b.column_dimensions['C'].width=30; ws_b.column_dimensions['D'].width=8
-        for c in ws_b[1]:
+
+        # 타이틀 행 삽입 (1행)
+        ws_b.insert_rows(1)
+        order_cnt = batch_order_counts.get(batch, '?')
+        sr = batch_serial_ranges.get(batch, None)
+        serial_str = f'송장순번 {sr[0]}~{sr[1]}' if sr else ''
+        title_val = f'배치 {int(batch)}  |  복합주문 {order_cnt}건  |  {serial_str}'
+        tc = ws_b.cell(row=1, column=1, value=title_val)
+        tc.font=Font(name='맑은 고딕', bold=True, size=11, color='FFFFFF')
+        tc.fill=PatternFill('solid', start_color=TERRA)
+        tc.alignment=Alignment(vertical='center', indent=1)
+        ws_b.row_dimensions[1].height=22
+        ws_b.merge_cells(f'A1:D1')
+        ws_b.freeze_panes='A3'
+
+        # 헤더 행 (2행)
+        for c in ws_b[2]:
             c.font=Font(name='맑은 고딕',bold=True,size=9,color='FFFFFF')
             c.fill=PatternFill('solid',start_color=TERRA); c.border=B
             c.alignment=Alignment(horizontal='center')
         prev_name=None; band=False
-        for r in range(2, ws_b.max_row+1):
+        for r in range(3, ws_b.max_row+1):
             cur=ws_b.cell(row=r,column=1).value
             if cur!=prev_name: band=not band; prev_name=cur
             for c in ws_b[r]:
