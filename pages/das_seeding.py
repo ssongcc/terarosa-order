@@ -16,7 +16,13 @@ st.set_page_config(
 st.markdown("""
 <style>
 section[data-testid="stSidebar"] { display: none; }
-.block-container { padding: 3.5rem 1.5rem 1rem 1.5rem !important; max-width: 100% !important; }
+.block-container { padding: 3.5rem 0.8rem 1rem 0.8rem !important; max-width: 100% !important; }
+@media (max-width: 600px) {
+    .sku-name { font-size: 1.4rem !important; }
+    .slot-chip { font-size: 1.1rem !important; padding: 10px 14px !important; }
+    .sku-total { font-size: 1rem !important; }
+    .stButton > button { font-size: 1.1rem !important; padding: 14px 0 !important; }
+}
 
 .sku-card {
     background: #FAF3F0; border: 3px solid #8B3A2A;
@@ -78,6 +84,7 @@ section[data-testid="stSidebar"] { display: none; }
 defaults = {
     "all_batches": {}, "batch_list": [], "cur_batch": None,
     "seed_idx": 0, "loaded": False,
+    "all_prep": {}, "prep_batch_list": [], "prep_cur_batch": None,
     "prep_items": [], "prep_batch": None, "prep_page": 0, "prep_loaded": False,
 }
 for k, v in defaults.items():
@@ -99,10 +106,12 @@ def load_seed():
 
 def load_prep():
     data = gh_load("das_prep.json", None)
-    if data and isinstance(data, dict) and "items" in data:
-        st.session_state.prep_items = data["items"]
-        st.session_state.prep_batch = data.get("batch")
-        st.session_state.prep_page  = 0
+    if data and isinstance(data, dict) and "all_prep" in data:
+        st.session_state.all_prep    = data["all_prep"]
+        st.session_state.prep_batch_list = data.get("batch_list", [])
+        st.session_state.prep_cur_batch  = str(data["batch_list"][0]) if data.get("batch_list") else None
+        st.session_state.prep_items  = data["all_prep"].get(str(data["batch_list"][0]), []) if data.get("batch_list") else []
+        st.session_state.prep_page   = 0
         st.session_state.prep_loaded = True
         return True
     return False
