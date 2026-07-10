@@ -596,17 +596,59 @@ def process(order_file, code_file, set_config):
 # 분배모드 결과 → 엑셀 BytesIO
 # ──────────────────────────────────────────────
 def build_das_excel(upload_df, line_df, seed_df, stats):
+    import re as _re
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-    TERRA='8B3A2A'; CREAM='FBF8F5'; OFF='F5F0EB'; PEAK='F5E8D8'; CH='2C2C2C'; STONE='D6CEC8'
+    TERRA='8B3A2A'; LINEN='EDE5DC'; CREAM='FBF8F5'; OFF='F5F0EB'
+    PEAK='F5E8D8'; CH='2C2C2C'; STONE='D6CEC8'
     thin=Side(style='thin',color=STONE); B=Border(left=thin,right=thin,top=thin,bottom=thin)
+    WP = _re.compile(r'(\d+(?:\.\d+)?\s*(?:kg|g))', _re.IGNORECASE)
+    RM = ['/구매 안함','구매 안함','/불필요','불필요','/플러스','플러스','/필요','필요']
+
+    def parse_sku(sku):
+        sku = str(sku).strip()
+        if '_' in sku:
+            name, rest = sku.split('_', 1)
+            m = WP.search(rest)
+            if m:
+                weight = m.group(1).replace(' ', '')
+                option = (rest[:m.start()] + rest[m.end():]).strip().strip('/')
+            else:
+                weight = ''; option = rest.strip()
+        else:
+            name = sku; weight = ''; option = ''
+        for rm in RM:
+            option = option.replace(rm, '').strip().strip('/')
+        return name.strip(), weight, option
+
+    # 배치별 SKU 데이터
+    sku_rows = seed_df[~seed_df['SKU'].astype(str).str.startswith('[칸배정]')].copy()
+    batch_sheets = {}
+    for batch in sorted(sku_rows['배치'].unique()):
+        rows = []
+        for _, r in sku_rows[sku_rows['배치']==batch].iterrows():
+            name, weight, option = parse_sku(r['SKU'])
+            rows.append({'품목명': name, '중량': weight, '옵션': option, '수량': r['총수량']})
+        df_b = pd.DataFrame(rows)
+        # 주문취합과 동일한 정렬: 세트→기타→드립백→스쿱세트→원두, 품목명→중량 내림→옵션
+        df_b['_group'] = df_b.apply(lambda r: classify({'품목명': r['품목명'], '중량': r['중량']}), axis=1)
+        df_b['_g_order'] = df_b['_group'].map(GROUP_ORDER)
+        df_b['_w_gram'] = df_b['중량'].apply(weight_to_gram)
+        df_b = df_b.sort_values(['_g_order','품목명','_w_gram','옵션'],
+                                ascending=[True,True,False,True]).drop(columns=['_group','_g_order','_w_gram'])
+        batch_sheets[batch] = df_b.reset_index(drop=True)
+
     buf = BytesIO()
     with pd.ExcelWriter(buf, engine='openpyxl') as w:
         line_df.to_excel(w, sheet_name='줄포장(단일주문)', index=False)
         seed_df.to_excel(w, sheet_name='씨딩지시(복합주문)', index=False)
+        for batch, df_b in batch_sheets.items():
+            df_b.to_excel(w, sheet_name=f'배치{int(batch)}_SKU', index=False)
         pd.DataFrame([stats]).to_excel(w, sheet_name='요약', index=False)
     buf.seek(0)
     from openpyxl import load_workbook
     wb = load_workbook(buf)
+
+    # 줄포장·씨딩지시 스타일
     for sn, widths in [('줄포장(단일주문)',[10,60,8,18]), ('씨딩지시(복합주문)',[6,60,8,70])]:
         ws = wb[sn]; ws.sheet_view.showGridLines=False; ws.freeze_panes='A2'
         for i,wd in enumerate(widths,1): ws.column_dimensions[get_column_letter(i)].width=wd
@@ -622,8 +664,40 @@ def build_das_excel(upload_df, line_df, seed_df, stats):
             for c in ws[r]:
                 c.font=Font(name='맑은 고딕',size=9,color='6B6056' if slot else CH); c.border=B
                 c.fill=PatternFill('solid',start_color=PEAK if slot else (CREAM if band else OFF))
+
+    # 배치별 SKU 시트 스타일
+    for batch in sorted(sku_rows['배치'].unique()):
+        sname = f'배치{int(batch)}_SKU'
+        if sname not in wb.sheetnames: continue
+        ws_b = wb[sname]; ws_b.sheet_view.showGridLines=False; ws_b.freeze_panes='A2'
+        ws_b.column_dimensions['A'].width=42; ws_b.column_dimensions['B'].width=10
+        ws_b.column_dimensions['C'].width=30; ws_b.column_dimensions['D'].width=8
+        for c in ws_b[1]:
+            c.font=Font(name='맑은 고딕',bold=True,size=9,color='FFFFFF')
+            c.fill=PatternFill('solid',start_color=TERRA); c.border=B
+            c.alignment=Alignment(horizontal='center')
+        prev_name=None; band=False
+        for r in range(2, ws_b.max_row+1):
+            cur=ws_b.cell(row=r,column=1).value
+            if cur!=prev_name: band=not band; prev_name=cur
+            for c in ws_b[r]:
+                c.font=Font(name='맑은 고딕',size=10,color=CH); c.border=B
+                c.fill=PatternFill('solid',start_color=CREAM if band else OFF)
+            ws_b.cell(row=r,column=4).alignment=Alignment(horizontal='center')
+        # 합계 행
+        last = ws_b.max_row+1
+        for col in range(1,5):
+            c=ws_b.cell(row=last,column=col)
+            c.fill=PatternFill('solid',start_color=LINEN); c.border=B
+        ws_b.cell(row=last,column=1,value='합계').font=Font(name='맑은 고딕',bold=True,size=10,color=TERRA)
+        ws_b.cell(row=last,column=1).fill=PatternFill('solid',start_color=LINEN)
+        tot=ws_b.cell(row=last,column=4,value=f'=SUM(D2:D{last-1})')
+        tot.font=Font(name='맑은 고딕',bold=True,size=10,color=TERRA)
+        tot.alignment=Alignment(horizontal='center')
+
     out = BytesIO(); wb.save(out); out.seek(0)
     return out
+
 
 # ══════════════════════════════════════════════
 # Streamlit UI
