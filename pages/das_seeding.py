@@ -1,7 +1,6 @@
 """
-테라로사 DAS 씨딩 화면 (태블릿용)
-Galaxy Tab A8 (10.5") 최적화
-탭1: 씨딩 작업 / 탭2: 품목 준비
+테라로사 DAS 씨딩 화면 (태블릿/모바일용)
+Galaxy Tab A8 + 8인치 태블릿 + 휴대폰 최적화
 """
 import streamlit as st
 from github_storage import gh_load, gh_save
@@ -17,75 +16,57 @@ st.markdown("""
 <style>
 section[data-testid="stSidebar"] { display: none; }
 .block-container { padding: 3.5rem 0.8rem 1rem 0.8rem !important; max-width: 100% !important; }
-@media (max-width: 600px) {
-    .sku-name { font-size: 1.4rem !important; }
-    .slot-chip { font-size: 1.1rem !important; padding: 10px 14px !important; }
-    .sku-total { font-size: 1rem !important; }
-    .stButton > button { font-size: 1.1rem !important; padding: 14px 0 !important; }
-}
 
 .sku-card {
     background: #FAF3F0; border: 3px solid #8B3A2A;
-    border-radius: 16px; padding: 24px 32px; margin-bottom: 16px;
+    border-radius: 16px; padding: 20px 24px; margin-bottom: 16px;
 }
-.sku-name { color: #8B3A2A; font-size: 2rem; font-weight: 800; line-height: 1.3; margin-bottom: 8px; }
-.sku-total { color: #6B6056; font-size: 1.2rem; margin-bottom: 20px; }
-.slot-grid { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
+.sku-name { color: #8B3A2A; font-size: 1.8rem; font-weight: 800; line-height: 1.3; margin-bottom: 6px; }
+.sku-total { color: #6B6056; font-size: 1.1rem; margin-bottom: 16px; }
+.slot-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }
 .slot-chip {
-    background: #8B3A2A; color: white; font-size: 1.4rem; font-weight: 700;
-    padding: 12px 20px; border-radius: 10px; white-space: nowrap;
+    background: #8B3A2A; color: white; font-size: 1.3rem; font-weight: 700;
+    padding: 10px 18px; border-radius: 10px; white-space: nowrap;
 }
-.prep-card {
-    background: #FAF3F0; border: 2px solid #D6CEC8;
-    border-radius: 12px; padding: 16px 20px; margin-bottom: 10px;
-    display: flex; align-items: center; justify-content: space-between;
-}
-.prep-name { color: #2C2C2C; font-size: 1.3rem; font-weight: 700; }
-.prep-sub { color: #6B6056; font-size: 0.95rem; margin-top: 2px; }
-.prep-qty {
-    background: #8B3A2A; color: white; font-size: 1.6rem; font-weight: 800;
-    padding: 8px 20px; border-radius: 10px; min-width: 70px; text-align: center;
-}
-.prep-bag {
-    background: #F5E8D8; border: 2px solid #A0622A;
-    border-radius: 12px; padding: 16px 20px; margin-bottom: 10px;
-    display: flex; align-items: center; justify-content: space-between;
-}
-.prep-bag .prep-name { color: #A0622A; }
-.prep-bag .prep-qty { background: #A0622A; }
 .progress-bar-wrap {
-    background: #EDE5DC; border-radius: 8px; height: 14px;
-    margin: 8px 0 4px 0; overflow: hidden;
+    background: #EDE5DC; border-radius: 8px; height: 12px; margin: 6px 0 4px 0; overflow: hidden;
 }
 .progress-bar-fill { background: #8B3A2A; height: 100%; border-radius: 8px; }
 .batch-badge {
-    background: #C4644A; color: white; font-size: 1rem; font-weight: 700;
-    padding: 4px 14px; border-radius: 20px; display: inline-block; margin-bottom: 12px;
+    background: #C4644A; color: white; font-size: 0.95rem; font-weight: 700;
+    padding: 4px 14px; border-radius: 20px; display: inline-block; margin-bottom: 10px;
 }
 .done-box {
     background: #E8F5E9; border: 3px solid #388E3C;
-    border-radius: 16px; padding: 40px; text-align: center;
+    border-radius: 16px; padding: 32px; text-align: center;
 }
 .stButton > button {
-    font-size: 1.3rem !important; font-weight: 700 !important;
-    padding: 18px 0 !important; border-radius: 12px !important;
+    font-size: 1.2rem !important; font-weight: 700 !important;
+    padding: 16px 0 !important; border-radius: 12px !important;
     border: none !important; width: 100%;
 }
-.btn-prev > button { background: #EDE5DC !important; color: #2C2C2C !important; }
-.btn-next > button { background: #8B3A2A !important; color: white !important; }
-.btn-batch > button { background: #EDE5DC !important; color: #8B3A2A !important; font-size: 1rem !important; padding: 10px 0 !important; }
+.btn-prev > button  { background: #EDE5DC !important; color: #2C2C2C !important; }
+.btn-next > button  { background: #8B3A2A !important; color: white !important; }
+.btn-batch > button { background: #EDE5DC !important; color: #8B3A2A !important;
+                      font-size: 0.95rem !important; padding: 9px 0 !important; }
 .btn-restart > button { background: #6B6056 !important; color: white !important; }
-.btn-load > button { background: #C4644A !important; color: white !important; font-size: 1rem !important; padding: 10px 0 !important; }
-.btn-sm > button { font-size: 1rem !important; padding: 10px 0 !important; }
+.btn-load > button  { background: #C4644A !important; color: white !important;
+                      font-size: 0.9rem !important; padding: 9px 0 !important; }
+.btn-sm > button    { font-size: 1rem !important; padding: 12px 0 !important; }
+@media (max-width: 600px) {
+    .sku-name  { font-size: 1.2rem !important; }
+    .slot-chip { font-size: 1rem !important; padding: 8px 12px !important; }
+    .sku-total { font-size: 0.95rem !important; }
+    .stButton > button { font-size: 1rem !important; padding: 13px 0 !important; }
+}
 </style>
 """, unsafe_allow_html=True)
 
 # ── 세션 초기화 ──
 defaults = {
-    "all_batches": {}, "batch_list": [], "cur_batch": None,
-    "seed_idx": 0, "loaded": False,
+    "all_batches": {}, "batch_list": [], "cur_batch": None, "seed_idx": 0, "loaded": False,
     "all_prep": {}, "prep_batch_list": [], "prep_cur_batch": None,
-    "prep_items": [], "prep_batch": None, "prep_page": 0, "prep_loaded": False,
+    "prep_items": [], "prep_page": 0, "prep_loaded": False,
 }
 for k, v in defaults.items():
     if k not in st.session_state:
@@ -98,7 +79,7 @@ def load_seed():
     if data and isinstance(data, dict) and "batches" in data:
         st.session_state.all_batches = {str(k): v for k, v in data["batches"].items()}
         st.session_state.batch_list  = data.get("batch_list", [])
-        st.session_state.cur_batch   = str(st.session_state.batch_list[0]) if st.session_state.batch_list else None
+        st.session_state.cur_batch   = str(data["batch_list"][0]) if data.get("batch_list") else None
         st.session_state.seed_idx    = 0
         st.session_state.loaded      = True
         return True
@@ -107,12 +88,13 @@ def load_seed():
 def load_prep():
     data = gh_load("das_prep.json", None)
     if data and isinstance(data, dict) and "all_prep" in data:
-        st.session_state.all_prep    = data["all_prep"]
+        st.session_state.all_prep        = {str(k): v for k, v in data["all_prep"].items()}
         st.session_state.prep_batch_list = data.get("batch_list", [])
-        st.session_state.prep_cur_batch  = str(data["batch_list"][0]) if data.get("batch_list") else None
-        st.session_state.prep_items  = data["all_prep"].get(str(data["batch_list"][0]), []) if data.get("batch_list") else []
-        st.session_state.prep_page   = 0
-        st.session_state.prep_loaded = True
+        first = str(data["batch_list"][0]) if data.get("batch_list") else None
+        st.session_state.prep_cur_batch  = first
+        st.session_state.prep_items      = st.session_state.all_prep.get(first, []) if first else []
+        st.session_state.prep_page       = 0
+        st.session_state.prep_loaded     = True
         return True
     return False
 
@@ -128,12 +110,12 @@ def parse_slots(분배_str):
     return slots
 
 # ── 헤더 ──
-col_h1, col_h2, col_h3 = st.columns([4, 2, 2])
+col_h1, col_h2, col_h3 = st.columns([4, 3, 3])
 with col_h1:
     st.markdown("## 📦 DAS 작업 화면")
 with col_h2:
     st.markdown('<div class="btn-load">', unsafe_allow_html=True)
-    if st.button("🔄 씨딩 데이터 불러오기", key="btn_load_seed"):
+    if st.button("🔄 씨딩 불러오기", key="btn_load_seed", use_container_width=True):
         if load_seed():
             st.rerun()
         else:
@@ -141,29 +123,26 @@ with col_h2:
     st.markdown('</div>', unsafe_allow_html=True)
 with col_h3:
     st.markdown('<div class="btn-load">', unsafe_allow_html=True)
-    if st.button("🔄 품목 데이터 불러오기", key="btn_load_prep"):
+    if st.button("🔄 품목 불러오기", key="btn_load_prep", use_container_width=True):
         if load_prep():
             st.rerun()
         else:
-            st.error("품목 데이터 없음. PC에서 배치_SKU 전송하세요.")
+            st.error("품목 데이터 없음. PC에서 전송하세요.")
     st.markdown('</div>', unsafe_allow_html=True)
 
 st.divider()
 
-# ── 탭 ──
 tab_seed, tab_prep = st.tabs(["📦 씨딩 작업", "📋 품목 준비"])
 
 # ════ 탭1: 씨딩 작업 ════
 with tab_seed:
     if not st.session_state.loaded or not st.session_state.all_batches:
-        st.info("👆 '씨딩 데이터 불러오기'를 누르면 작업이 나타납니다.")
+        st.info("👆 '씨딩 불러오기'를 눌러주세요.")
         st.stop()
 
-    skus_all   = st.session_state.all_batches
     batch_list = st.session_state.batch_list
     cur_batch  = st.session_state.cur_batch
 
-    # 배치 선택
     st.markdown("**배치 선택**")
     cols_b = st.columns(len(batch_list))
     for i, b in enumerate(batch_list):
@@ -177,7 +156,7 @@ with tab_seed:
             st.markdown('</div>', unsafe_allow_html=True)
     st.divider()
 
-    skus  = skus_all.get(str(cur_batch), [])
+    skus  = st.session_state.all_batches.get(str(cur_batch), [])
     idx   = st.session_state.seed_idx
     total = len(skus)
 
@@ -187,31 +166,29 @@ with tab_seed:
 
     if idx >= total:
         st.markdown(f"""
-        <div class="done-box">
-            <div style="font-size:3rem">🎉</div>
-            <div style="font-size:1.8rem;font-weight:800;color:#388E3C;margin:12px 0">배치 {cur_batch} 씨딩 완료!</div>
-            <div style="font-size:1.1rem;color:#6B6056">총 {total}개 SKU 처리</div>
-        </div>""", unsafe_allow_html=True)
+<div class="done-box">
+  <div style="font-size:2.5rem">🎉</div>
+  <div style="font-size:1.6rem;font-weight:800;color:#388E3C;margin:10px 0">배치 {cur_batch} 씨딩 완료!</div>
+  <div style="font-size:1rem;color:#6B6056">총 {total}개 SKU 처리</div>
+</div>""", unsafe_allow_html=True)
         st.markdown("")
         st.markdown('<div class="btn-restart">', unsafe_allow_html=True)
         if st.button("↩️ 처음부터 다시", key="btn_restart"):
-            st.session_state.seed_idx = 0
-            st.rerun()
+            st.session_state.seed_idx = 0; st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
         st.stop()
 
     sku   = skus[idx]
-    slots = parse_slots(sku.get("분배",""))
+    slots = parse_slots(sku.get("분배", ""))
     pct   = int(idx / total * 100)
 
     st.markdown(f'<div class="batch-badge">배치 {cur_batch}</div>', unsafe_allow_html=True)
     st.markdown(f"""
-    <div style="display:flex;justify-content:space-between;color:#6B6056;font-size:0.95rem;">
-        <span>진행 {idx} / {total}</span><span>{pct}%</span>
-    </div>
-    <div class="progress-bar-wrap">
-        <div class="progress-bar-fill" style="width:{pct}%"></div>
-    </div>""", unsafe_allow_html=True)
+<div style="display:flex;justify-content:space-between;color:#6B6056;font-size:0.9rem;">
+  <span>진행 {idx} / {total}</span><span>{pct}%</span>
+</div>
+<div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:{pct}%"></div></div>
+""", unsafe_allow_html=True)
 
     slot_chips = "".join(
         f'<div class="slot-chip">{칸} &nbsp;×{수량}</div>' if 수량 > 1
@@ -219,20 +196,20 @@ with tab_seed:
         for 칸, 수량 in slots
     )
     st.markdown(f"""
-    <div class="sku-card">
-        <div class="sku-name">🫘 {sku.get("SKU","")}</div>
-        <div class="sku-total">총 {sku.get("총수량","")}개 뿌리기</div>
-        <div class="slot-grid">{slot_chips}</div>
-    </div>""", unsafe_allow_html=True)
+<div class="sku-card">
+  <div class="sku-name">🫘 {sku.get("SKU","")}</div>
+  <div class="sku-total">총 {sku.get("총수량","")}개 뿌리기</div>
+  <div class="slot-grid">{slot_chips}</div>
+</div>""", unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
     with col1:
         st.markdown('<div class="btn-prev">', unsafe_allow_html=True)
-        if st.button("← 이전 SKU", key="btn_prev", disabled=(idx==0)):
+        if st.button("← 이전 SKU", key="btn_prev", disabled=(idx == 0)):
             st.session_state.seed_idx -= 1; st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
     with col2:
-        label = "완료 → 다음 SKU ✅" if idx < total-1 else "완료 🎉 마지막!"
+        label = "완료 → 다음 SKU ✅" if idx < total - 1 else "완료 🎉 마지막!"
         st.markdown('<div class="btn-next">', unsafe_allow_html=True)
         if st.button(label, key="btn_next"):
             st.session_state.seed_idx += 1; st.rerun()
@@ -240,61 +217,93 @@ with tab_seed:
 
 # ════ 탭2: 품목 준비 ════
 with tab_prep:
-    if not st.session_state.prep_loaded or not st.session_state.prep_items:
-        st.info("👆 PC에서 '배치N_SKU 전송' 버튼을 누른 후 '품목 데이터 불러오기'를 누르세요.")
+    if not st.session_state.prep_loaded or not st.session_state.all_prep:
+        st.info("👆 '품목 불러오기'를 눌러주세요.")
         st.stop()
 
-    items    = st.session_state.prep_items
-    page     = st.session_state.prep_page
-    total_i  = len(items)
-    total_p  = (total_i + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE
-    start    = page * ITEMS_PER_PAGE
-    end      = min(start + ITEMS_PER_PAGE, total_i)
+    prep_batch_list = st.session_state.prep_batch_list
+    prep_cur        = st.session_state.prep_cur_batch
+
+    if len(prep_batch_list) > 1:
+        st.markdown("**배치 선택**")
+        cols_pb = st.columns(len(prep_batch_list))
+        for i, b in enumerate(prep_batch_list):
+            with cols_pb[i]:
+                is_cur = str(b) == str(prep_cur)
+                st.markdown('<div class="btn-batch">', unsafe_allow_html=True)
+                if st.button(f"{'✅ ' if is_cur else ''}배치 {b}", key=f"prep_sel_{b}", use_container_width=True):
+                    st.session_state.prep_cur_batch = str(b)
+                    st.session_state.prep_items     = st.session_state.all_prep.get(str(b), [])
+                    st.session_state.prep_page      = 0
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("")
+
+    items   = st.session_state.prep_items
+    page    = st.session_state.prep_page
+    total_i = len(items)
+    if total_i == 0:
+        st.warning("이 배치에 품목 데이터가 없습니다.")
+        st.stop()
+
+    total_p    = (total_i + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE
+    start      = page * ITEMS_PER_PAGE
+    end        = min(start + ITEMS_PER_PAGE, total_i)
     page_items = items[start:end]
 
-    st.markdown(f'<div class="batch-badge">배치 {st.session_state.prep_batch} — 품목 준비</div>', unsafe_allow_html=True)
-    pct_p = int((page+1)/total_p*100)
+    st.markdown(f'<div class="batch-badge">배치 {prep_cur} — 품목 준비</div>', unsafe_allow_html=True)
+    pct_p = int((page + 1) / total_p * 100)
     st.markdown(f"""
-    <div style="display:flex;justify-content:space-between;color:#6B6056;font-size:0.95rem;">
-        <span>{page+1} / {total_p} 페이지 (품목 {start+1}~{end} / {total_i})</span><span>{pct_p}%</span>
-    </div>
-    <div class="progress-bar-wrap">
-        <div class="progress-bar-fill" style="width:{pct_p}%"></div>
-    </div>""", unsafe_allow_html=True)
+<div style="display:flex;justify-content:space-between;color:#6B6056;font-size:0.9rem;margin-top:6px;">
+  <span>{page+1} / {total_p} 페이지 ({start+1}~{end} / 총 {total_i}개)</span><span>{pct_p}%</span>
+</div>
+<div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:{pct_p}%"></div></div>
+""", unsafe_allow_html=True)
     st.markdown("")
 
+    # 품목 카드 — f-string 안 조건식 제거, 변수로 분리
     for item in page_items:
-        name  = item.get("품목명","")
-        weight= item.get("중량","")
-        opt   = item.get("옵션","")
-        qty   = item.get("수량","")
-        sub   = " / ".join(x for x in [weight, opt] if x)
+        name   = item.get("품목명", "")
+        weight = item.get("중량", "")
+        opt    = item.get("옵션", "")
+        qty    = item.get("수량", "")
+        sub    = " / ".join(x for x in [weight, opt] if x)
         is_bag = "쇼핑백" in name
-        card_cls = "prep-bag" if is_bag else "prep-card"
-        sub_html = f'<div class="prep-sub">{sub}</div>' if sub else ""
-        st.markdown(f"""
-        <div class="{card_cls}">
-            <div>
-                <div class="prep-name">{name}</div>
-                {sub_html}
-            </div>
-            <div class="prep-qty">{qty}</div>
-        </div>""", unsafe_allow_html=True)
+        bg     = "#F5E8D8" if is_bag else "#FAF3F0"
+        border = "#A0622A" if is_bag else "#D6CEC8"
+        nc     = "#A0622A" if is_bag else "#2C2C2C"
+        qbg    = "#A0622A" if is_bag else "#8B3A2A"
+        sub_part = f'<div style="color:#6B6056;font-size:0.85rem;margin-top:3px;">{sub}</div>' if sub else ''
+        st.markdown(
+            f'<div style="background:{bg};border:2px solid {border};border-radius:12px;'
+            f'padding:14px 18px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;">'
+            f'<div style="flex:1;min-width:0;">'
+            f'<div style="color:{nc};font-size:1.1rem;font-weight:700;word-break:keep-all;line-height:1.4;">{name}</div>'
+            f'{sub_part}'
+            f'</div>'
+            f'<div style="background:{qbg};color:white;font-size:1.5rem;font-weight:800;'
+            f'border-radius:10px;text-align:center;padding:10px 16px;margin-left:12px;'
+            f'white-space:nowrap;min-width:52px;">{qty}</div>'
+            f'</div>',
+            unsafe_allow_html=True
+        )
 
     st.markdown("")
-    col1, col2, col3 = st.columns([2, 3, 2])
+    col1, col2, col3 = st.columns([3, 4, 3])
     with col1:
         st.markdown('<div class="btn-sm">', unsafe_allow_html=True)
-        if st.button("← 이전", key="btn_prep_prev", disabled=(page==0), use_container_width=True):
+        if st.button("← 이전", key="btn_prep_prev", disabled=(page == 0), use_container_width=True):
             st.session_state.prep_page -= 1; st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
     with col2:
-        if page == total_p - 1:
-            st.markdown(f'<div style="text-align:center;color:#388E3C;font-weight:700;font-size:1.1rem;padding:14px 0">✅ 마지막 페이지</div>', unsafe_allow_html=True)
-        else:
-            st.markdown(f'<div style="text-align:center;color:#6B6056;padding:14px 0">{page+1} / {total_p}</div>', unsafe_allow_html=True)
+        msg = "✅ 마지막 페이지" if page == total_p - 1 else f"{page+1} / {total_p}"
+        clr = "#388E3C" if page == total_p - 1 else "#6B6056"
+        st.markdown(
+            f'<div style="text-align:center;color:{clr};font-weight:700;padding:14px 0;">{msg}</div>',
+            unsafe_allow_html=True
+        )
     with col3:
         st.markdown('<div class="btn-sm">', unsafe_allow_html=True)
-        if st.button("다음 →", key="btn_prep_next", disabled=(page==total_p-1), use_container_width=True):
+        if st.button("다음 →", key="btn_prep_next", disabled=(page == total_p - 1), use_container_width=True):
             st.session_state.prep_page += 1; st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
