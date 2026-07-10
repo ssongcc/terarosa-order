@@ -1064,23 +1064,17 @@ with tab2:
                 st.markdown("**📱 태블릿 씨딩 화면으로 전송**")
                 st.caption("SKU명·칸번호·수량만 전송됩니다. 개인정보는 포함되지 않습니다.")
                 # 전체 씨딩 전송
-                if st.button("📦 전체 씨딩 데이터 전송", use_container_width=True, key="btn_seed_all"):
+                if st.button("📦 태블릿으로 전송 (씨딩 + 품목 준비)", use_container_width=True, key="btn_send_all"):
                     seed_df_r = r["seed_df"]
-                    batches = sorted(seed_df_r['배치'].unique())
+                    batches   = sorted(seed_df_r['배치'].unique())
+
+                    # 씨딩 데이터
                     all_batches = {}
                     for b in batches:
                         b_skus = [row for row in r["seed_sku_rows"] if row['배치'] == b]
                         all_batches[str(int(b))] = b_skus
-                    ok = gh_save("das_session.json", {"batches": all_batches, "batch_list": [int(b) for b in batches]})
-                    if ok:
-                        st.success(f"✅ 전체 {len(batches)}개 배치 전송 완료! 태블릿에서 '최신 데이터 불러오기'를 누르세요.")
-                    else:
-                        st.error("❌ 전송 실패. GitHub 연결을 확인하세요.")
 
-                # 전체 배치 품목 준비 한 번에 전송
-                if st.button("📋 전체 배치 품목 준비 전송", use_container_width=True, key="btn_prep_all"):
-                    seed_df_r = r["seed_df"]
-                    batches = sorted(seed_df_r['배치'].unique())
+                    # 품목 준비 데이터 (배치 시트 정렬 순)
                     all_prep = {}
                     for b in batches:
                         b_rows = []
@@ -1090,7 +1084,6 @@ with tab2:
                         ].iterrows():
                             name, weight, option = _parse_sku_app(str(row['SKU']))
                             b_rows.append({'품목명': name, '중량': weight, '옵션': option, '수량': int(row['총수량'])})
-                        # 쇼핑백 추가
                         mask_base = (
                             (seed_df_r['배치']==b) &
                             (~seed_df_r['SKU'].astype(str).str.startswith('[칸배정]')) &
@@ -1099,24 +1092,28 @@ with tab2:
                         )
                         bag_s = int(seed_df_r[mask_base & seed_df_r['SKU'].str.contains('10개입', na=False)]['총수량'].sum())
                         bag_l = int(seed_df_r[mask_base & seed_df_r['SKU'].str.contains('30개입', na=False)]['총수량'].sum())
-                        # 배치 시트와 동일한 정렬 (세트→기타→드립백→스쿱세트→원두)
-                        df_b = pd.DataFrame(b_rows)
-                        df_b = df_b.groupby(['품목명','중량','옵션'], sort=False, as_index=False)['수량'].sum()
-                        df_b['_group'] = df_b.apply(lambda r: classify({'품목명': r['품목명'], '중량': r['중량']}), axis=1)
+                        df_b  = pd.DataFrame(b_rows)
+                        df_b  = df_b.groupby(['품목명','중량','옵션'], sort=False, as_index=False)['수량'].sum()
+                        df_b['_group']   = df_b.apply(lambda r: classify({'품목명': r['품목명'], '중량': r['중량']}), axis=1)
                         df_b['_g_order'] = df_b['_group'].map(GROUP_ORDER)
                         df_b['_w_gram']  = df_b['중량'].apply(weight_to_gram)
                         df_b = df_b.sort_values(['_g_order','품목명','_w_gram','옵션'],
                                                 ascending=[True,True,False,True]).drop(columns=['_group','_g_order','_w_gram'])
                         b_rows = df_b.to_dict('records')
-                        # 쇼핑백은 맨 앞에 삽입
                         if bag_l: b_rows.insert(0, {'품목명':'쇼핑백(대) 필요','중량':'','옵션':'','수량': bag_l})
                         if bag_s: b_rows.insert(0, {'품목명':'쇼핑백(소) 필요','중량':'','옵션':'','수량': bag_s})
                         all_prep[str(int(b))] = b_rows
-                    ok = gh_save("das_prep.json", {"batch_list": [int(b) for b in batches], "all_prep": all_prep})
+
+                    # 하나의 파일로 통합 전송
+                    ok = gh_save("das_data.json", {
+                        "batch_list": [int(b) for b in batches],
+                        "batches":    all_batches,
+                        "all_prep":   all_prep,
+                    })
                     if ok:
-                        st.success(f"✅ 전체 {len(batches)}개 배치 품목 전송 완료! 태블릿 '품목 준비' 탭에서 확인하세요.")
+                        st.success(f"✅ {len(batches)}개 배치 전송 완료! 태블릿에서 '불러오기'를 누르세요.")
                     else:
-                        st.error("❌ 전송 실패.")
+                        st.error("❌ 전송 실패. GitHub 연결을 확인하세요.")
 
             with st.expander("씨딩지시 미리보기", expanded=False):
                 st.dataframe(r["seed_df"], use_container_width=True, height=400)
