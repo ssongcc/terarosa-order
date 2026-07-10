@@ -658,6 +658,7 @@ def build_das_excel(upload_df, line_df, seed_df, stats):
     # 배치별 SKU 데이터
     sku_rows = seed_df[~seed_df['SKU'].astype(str).str.startswith('[칸배정]')].copy()
     batch_sheets = {}
+    batch_bags = {}
     for batch in sorted(sku_rows['배치'].unique()):
         rows = []
         for _, r in sku_rows[sku_rows['배치']==batch].iterrows():
@@ -666,6 +667,16 @@ def build_das_excel(upload_df, line_df, seed_df, stats):
         df_b = pd.DataFrame(rows)
         # 동일 품목명+중량+옵션 합산
         df_b = df_b.groupby(['품목명','중량','옵션'], sort=False, as_index=False)['수량'].sum()
+
+        # 쇼핑백 필요 수량 집계 (필요 키워드가 원본 SKU에 있던 행)
+        bag_s = sum(r['총수량'] for _, r in sku_rows[sku_rows['배치']==batch].iterrows()
+                    if '드립백' in str(r['SKU']) and '필요' in str(r['SKU']) and '10개입' in str(r['SKU']))
+        bag_l = sum(r['총수량'] for _, r in sku_rows[sku_rows['배치']==batch].iterrows()
+                    if '드립백' in str(r['SKU']) and '필요' in str(r['SKU']) and '30개입' in str(r['SKU']))
+        bag_rows = []
+        if bag_s: bag_rows.append({'품목명':'쇼핑백(소) 필요','중량':'','옵션':'','수량': bag_s})
+        if bag_l: bag_rows.append({'품목명':'쇼핑백(대) 필요','중량':'','옵션':'','수량': bag_l})
+        batch_bags[batch] = bag_rows
         # 주문취합과 동일한 정렬: 세트→기타→드립백→스쿱세트→원두, 품목명→중량 내림→옵션
         df_b['_group'] = df_b.apply(lambda r: classify({'품목명': r['품목명'], '중량': r['중량']}), axis=1)
         df_b['_g_order'] = df_b['_group'].map(GROUP_ORDER)
@@ -710,6 +721,10 @@ def build_das_excel(upload_df, line_df, seed_df, stats):
         ws_b.column_dimensions['A'].width=42; ws_b.column_dimensions['B'].width=10
         ws_b.column_dimensions['C'].width=30; ws_b.column_dimensions['D'].width=8
 
+        # 쇼핑백 행 삽입 (헤더 다음에 넣을 행 수 계산)
+        bags = batch_bags.get(batch, [])
+        n_bag = len(bags)
+
         # 타이틀 행 삽입 (1행)
         ws_b.insert_rows(1)
         order_cnt = batch_order_counts.get(batch, '?')
@@ -722,15 +737,29 @@ def build_das_excel(upload_df, line_df, seed_df, stats):
         tc.alignment=Alignment(vertical='center', indent=1)
         ws_b.row_dimensions[1].height=22
         ws_b.merge_cells(f'A1:D1')
-        ws_b.freeze_panes='A3'
 
         # 헤더 행 (2행)
         for c in ws_b[2]:
             c.font=Font(name='맑은 고딕',bold=True,size=9,color='FFFFFF')
             c.fill=PatternFill('solid',start_color=TERRA); c.border=B
             c.alignment=Alignment(horizontal='center')
+
+        # 쇼핑백 행 삽입 (3행~) — 일반 데이터 행과 동일 스타일
+        if n_bag:
+            ws_b.insert_rows(3, amount=n_bag)
+            for bi, bag in enumerate(bags):
+                br = 3 + bi
+                fill = PatternFill('solid', start_color=CREAM if bi%2==0 else OFF)
+                ws_b.cell(row=br, column=1, value=bag['품목명']).font = Font(name='맑은 고딕', size=10, color=CH)
+                ws_b.cell(row=br, column=4, value=bag['수량']).font = Font(name='맑은 고딕', size=10, color=CH)
+                for col in range(1, 5):
+                    c = ws_b.cell(row=br, column=col)
+                    c.fill = fill; c.border = B
+                ws_b.cell(row=br, column=4).alignment = Alignment(horizontal='center')
+
+        ws_b.freeze_panes = f'A{3 + n_bag}'
         prev_name=None; band=False
-        for r in range(3, ws_b.max_row+1):
+        for r in range(3 + n_bag, ws_b.max_row+1):
             cur=ws_b.cell(row=r,column=1).value
             if cur!=prev_name: band=not band; prev_name=cur
             for c in ws_b[r]:
