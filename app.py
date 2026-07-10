@@ -621,7 +621,7 @@ def build_das_excel(upload_df, line_df, seed_df, stats):
                 # 맛 구성 뒤에 붙은 /필요 등 제거
                 for rm in STRIP_SUFFIX:
                     rest = rest.replace(rm, '').strip().strip('/')
-                return name.strip(), rest, ''  # B열=맛구성, C열=공백
+                return name.strip(), '', rest  # B열=공백, C열=옵션(맛구성)
             return clean, '', ''
         # 일반 상품: 중량 추출
         if '_' in clean:
