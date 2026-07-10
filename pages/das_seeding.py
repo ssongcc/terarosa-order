@@ -52,12 +52,11 @@ section[data-testid="stSidebar"] { display: none; }
 .btn-load > button  { background: #C4644A !important; color: white !important;
                       font-size: 0.9rem !important; padding: 9px 0 !important; }
 .btn-sm > button    { font-size: 1rem !important; padding: 12px 0 !important; }
-.btn-card > button  {
-    background: transparent !important; color: transparent !important;
-    border: none !important; padding: 0 !important; margin: 0 !important;
-    height: 0px !important; min-height: 0 !important; font-size: 0 !important;
-    position: absolute !important; opacity: 0 !important;
-}
+.btn-check > button { background: #FFFFFF !important; color: #8B3A2A !important;
+                      border: 2px solid #8B3A2A !important;
+                      font-size: 1rem !important; padding: 10px 0 !important; }
+.btn-checked > button { background: #388E3C !important; color: white !important;
+                        font-size: 1rem !important; padding: 10px 0 !important; }
 .btn-filter > button { background: #EDE5DC !important; color: #8B3A2A !important;
                        font-size: 0.95rem !important; padding: 10px 0 !important; }
 .btn-filter-active > button { background: #8B3A2A !important; color: white !important;
@@ -76,8 +75,8 @@ defaults = {
     "all_batches": {}, "batch_list": [], "cur_batch": None, "seed_idx": 0, "loaded": False,
     "all_prep": {}, "prep_batch_list": [], "prep_cur_batch": None,
     "prep_items": [], "prep_page": 0, "prep_loaded": False,
-    "prep_checked": {},
-    "prep_show_unprepared": False,
+    "prep_checked": {},       # {str(batch): set of int global indices}
+    "prep_show_unprepared": False,   # 미준비 품목만 보기 토글
 }
 for k, v in defaults.items():
     if k not in st.session_state:
@@ -110,7 +109,7 @@ def load_prep():
         st.session_state.prep_cur_batch  = first
         st.session_state.prep_items      = st.session_state.all_prep.get(first, []) if first else []
         st.session_state.prep_page       = 0
-        st.session_state.prep_checked    = {}
+        st.session_state.prep_checked    = {}   # 새 데이터 불러오면 체크 초기화
         st.session_state.prep_show_unprepared = False
         st.session_state.prep_loaded     = True
         return True
@@ -232,6 +231,7 @@ with tab_seed:
             st.session_state.seed_idx += 1; st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
+
 # ════ 탭2: 품목 준비 ════
 with tab_prep:
     if not st.session_state.prep_loaded or not st.session_state.all_prep:
@@ -241,6 +241,7 @@ with tab_prep:
     prep_batch_list = st.session_state.prep_batch_list
     prep_cur        = st.session_state.prep_cur_batch
 
+    # ── 배치 선택 ──
     if len(prep_batch_list) > 1:
         st.markdown("**배치 선택**")
         cols_pb = st.columns(len(prep_batch_list))
@@ -259,6 +260,7 @@ with tab_prep:
 
     items   = st.session_state.prep_items
     total_i = len(items)
+
     if total_i == 0:
         st.warning("이 배치에 품목 데이터가 없습니다.")
         st.stop()
@@ -266,66 +268,84 @@ with tab_prep:
     checked    = get_checked(str(prep_cur))
     done_count = len(checked)
 
+    # ── 준비 현황 헤더 ──
     st.markdown(f'<div class="batch-badge">배치 {prep_cur} — 품목 준비</div>', unsafe_allow_html=True)
+
     pct_done = int(done_count / total_i * 100) if total_i else 0
-    s_color  = "#388E3C" if done_count == total_i else "#8B3A2A"
-    s_label  = f"✅ 전체 완료! ({done_count}/{total_i})" if done_count == total_i else f"준비 완료 {done_count} / {total_i}"
-    bar_color = "#388E3C" if done_count == total_i else "#8B3A2A"
+    if done_count == total_i:
+        status_color = "#388E3C"
+        status_label = f"✅ 전체 완료! ({done_count}/{total_i})"
+    else:
+        status_color = "#8B3A2A"
+        status_label = f"준비 완료 {done_count} / {total_i}"
+
     st.markdown(f"""
-<div style="display:flex;justify-content:space-between;color:{s_color};font-size:0.95rem;font-weight:700;margin-top:6px;">
-  <span>{s_label}</span><span>{pct_done}%</span>
+<div style="display:flex;justify-content:space-between;color:{status_color};font-size:0.95rem;font-weight:700;margin-top:6px;">
+  <span>{status_label}</span><span>{pct_done}%</span>
 </div>
 <div class="progress-bar-wrap">
-  <div style="background:{bar_color};height:100%;border-radius:8px;width:{pct_done}%;"></div>
+  <div class="progress-bar-fill" style="width:{pct_done}%;background:{'#388E3C' if done_count==total_i else '#8B3A2A'};"></div>
 </div>
 """, unsafe_allow_html=True)
 
-    show_unprepared  = st.session_state.prep_show_unprepared
+    # ── 필터 토글 버튼 ──
+    show_unprepared = st.session_state.prep_show_unprepared
     unprepared_count = total_i - done_count
 
     col_f1, col_f2 = st.columns(2)
     with col_f1:
-        cls = "btn-filter-active" if not show_unprepared else "btn-filter"
-        st.markdown(f'<div class="{cls}">', unsafe_allow_html=True)
+        css_cls = "btn-filter-active" if not show_unprepared else "btn-filter"
+        st.markdown(f'<div class="{css_cls}">', unsafe_allow_html=True)
         if st.button(f"전체 보기 ({total_i})", key="btn_view_all", use_container_width=True):
             st.session_state.prep_show_unprepared = False
-            st.session_state.prep_page = 0; st.rerun()
+            st.session_state.prep_page = 0
+            st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
     with col_f2:
-        cls = "btn-filter-active" if show_unprepared else "btn-filter"
-        st.markdown(f'<div class="{cls}">', unsafe_allow_html=True)
-        if st.button(f"⚠️ 미준비 ({unprepared_count})", key="btn_view_unprepared", use_container_width=True):
+        css_cls = "btn-filter-active" if show_unprepared else "btn-filter"
+        st.markdown(f'<div class="{css_cls}">', unsafe_allow_html=True)
+        if st.button(f"⚠️ 미준비 품목 ({unprepared_count})", key="btn_view_unprepared", use_container_width=True):
             st.session_state.prep_show_unprepared = True
-            st.session_state.prep_page = 0; st.rerun()
+            st.session_state.prep_page = 0
+            st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown("")
 
+    # ── 품목 목록 결정 ──
     if show_unprepared:
+        # 미준비 품목만 (global_idx 포함)
         display_items = [(i, items[i]) for i in range(total_i) if i not in checked]
         if not display_items:
             st.markdown("""
 <div class="done-box">
   <div style="font-size:2rem">🎉</div>
   <div style="font-size:1.4rem;font-weight:800;color:#388E3C;margin:8px 0">모든 품목 준비 완료!</div>
+  <div style="font-size:0.95rem;color:#6B6056">미준비 품목이 없습니다.</div>
 </div>""", unsafe_allow_html=True)
             st.stop()
-        page = 0; total_p = 1
-        page_items_indexed = display_items
+        # 미준비 전체를 페이지 없이 표시
+        st.markdown(f'<div style="color:#A0522D;font-size:0.9rem;font-weight:700;margin-bottom:8px;">⚠️ 미준비 품목 {len(display_items)}개</div>', unsafe_allow_html=True)
+        page     = 0
+        total_p  = 1
+        start, end = 0, len(display_items)
+        page_items_indexed = display_items  # (global_idx, item)
     else:
+        # 전체 목록 페이지네이션
         page    = st.session_state.prep_page
         total_p = (total_i + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE
         start   = page * ITEMS_PER_PAGE
         end     = min(start + ITEMS_PER_PAGE, total_i)
         page_items_indexed = [(start + j, items[start + j]) for j in range(end - start)]
+
         page_done = sum(1 for gi, _ in page_items_indexed if gi in checked)
         st.markdown(f"""
-<div style="display:flex;justify-content:space-between;color:#6B6056;font-size:0.85rem;margin-bottom:8px;">
-  <span>{page+1} / {total_p} 페이지 ({start+1}~{end} / {total_i}개)</span>
+<div style="display:flex;justify-content:space-between;color:#6B6056;font-size:0.85rem;margin-bottom:4px;">
+  <span>{page+1} / {total_p} 페이지 ({start+1}~{end} / 총 {total_i}개)</span>
   <span>이 페이지 {page_done}/{len(page_items_indexed)} 완료</span>
 </div>""", unsafe_allow_html=True)
 
-    # ── 품목 카드 (카드 전체를 누르면 완료 토글) ──
+    # ── 품목 카드 렌더링 ──
     for global_idx, item in page_items_indexed:
         name   = item.get("품목명", "")
         weight = item.get("중량", "")
@@ -335,6 +355,7 @@ with tab_prep:
         is_bag     = "쇼핑백" in name
         is_checked = global_idx in checked
 
+        # 상태별 색상
         if is_checked:
             bg = "#E8F5E9"; border = "#388E3C"; nc = "#256029"; qbg = "#388E3C"
         elif is_bag:
@@ -342,41 +363,32 @@ with tab_prep:
         else:
             bg = "#FAF3F0"; border = "#D6CEC8"; nc = "#2C2C2C"; qbg = "#8B3A2A"
 
-        sub_part = f'<div style="color:#6B6056;font-size:0.85rem;margin-top:3px;">{sub}</div>' if sub else ''
-        strike   = "text-decoration:line-through;opacity:0.55;" if is_checked else ""
-        cm_html  = '<div style="color:#388E3C;font-size:1.3rem;margin-left:8px;flex-shrink:0;">✅</div>' if is_checked else ''
+        check_icon = "✅ 완료" if is_checked else "◻ 완료"
+        sub_part = (
+            f'<div style="color:#6B6056;font-size:0.85rem;margin-top:3px;">{sub}</div>'
+            if sub else ''
+        )
+        strike = "text-decoration:line-through;opacity:0.6;" if is_checked else ""
 
-        # 카드 HTML
         st.markdown(
             f'<div style="background:{bg};border:2px solid {border};border-radius:12px;'
-            f'padding:14px 16px;margin-bottom:2px;display:flex;align-items:center;'
-            f'justify-content:space-between;cursor:pointer;">'
+            f'padding:12px 14px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;">'
             f'<div style="flex:1;min-width:0;">'
             f'<div style="color:{nc};font-size:1.05rem;font-weight:700;word-break:keep-all;'
             f'line-height:1.4;{strike}">{name}</div>'
             f'{sub_part}'
             f'</div>'
-            f'{cm_html}'
             f'<div style="background:{qbg};color:white;font-size:1.4rem;font-weight:800;'
             f'border-radius:10px;text-align:center;padding:8px 14px;margin-left:10px;'
             f'white-space:nowrap;min-width:48px;">{qty}</div>'
             f'</div>',
             unsafe_allow_html=True
         )
-        # 카드 아래 탭 버튼 (카드와 시각적으로 연결, 높이 최소화)
-        tap_label = "✅  준비 완료  (탭하여 취소)" if is_checked else "◻  탭하여 완료"
-        tap_bg    = "#388E3C" if is_checked else "#EDE5DC"
-        tap_color = "white"   if is_checked else "#6B6056"
-        st.markdown(
-            f'<div style="background:{tap_bg};color:{tap_color};font-size:0.9rem;font-weight:600;'
-            f'text-align:center;padding:7px 0;border-radius:0 0 12px 12px;'
-            f'border:2px solid {border};border-top:none;margin-bottom:10px;cursor:pointer;">'
-            f'{tap_label}</div>',
-            unsafe_allow_html=True
-        )
-        # 실제 Streamlit 버튼 (완전 투명 — 위 탭바 영역과 겹쳐서 클릭 처리)
-        st.markdown('<div class="btn-card">', unsafe_allow_html=True)
-        if st.button(" ", key=f"chk_{prep_cur}_{global_idx}", use_container_width=True):
+
+        # 완료 토글 버튼
+        btn_css = "btn-checked" if is_checked else "btn-check"
+        st.markdown(f'<div class="{btn_css}" style="margin-bottom:10px;">', unsafe_allow_html=True)
+        if st.button(check_icon, key=f"chk_{prep_cur}_{global_idx}", use_container_width=True):
             if is_checked:
                 checked.discard(global_idx)
             else:
@@ -384,8 +396,8 @@ with tab_prep:
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # ── 페이지 네비게이션 ──
-    if not show_unprepared and total_p > 1:
+    # ── 페이지 네비게이션 (전체 보기일 때만) ──
+    if not show_unprepared:
         st.markdown("")
         col1, col2, col3 = st.columns([3, 4, 3])
         with col1:
@@ -394,7 +406,7 @@ with tab_prep:
                 st.session_state.prep_page -= 1; st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
         with col2:
-            msg = "✅ 마지막" if page == total_p - 1 else f"{page+1} / {total_p}"
+            msg = "✅ 마지막 페이지" if page == total_p - 1 else f"{page+1} / {total_p}"
             clr = "#388E3C" if page == total_p - 1 else "#6B6056"
             st.markdown(
                 f'<div style="text-align:center;color:{clr};font-weight:700;padding:14px 0;">{msg}</div>',
