@@ -1005,8 +1005,31 @@ with tab2:
                     upload_df, line_df, seed_df, stats, _ = das_run(df_das, batch_size=int(batch_size))
                     today = datetime.today().strftime("%m%d_%H%M")
                     das_buf = build_das_excel(upload_df, line_df, seed_df, stats)
+                    # 전화번호 열 텍스트 형식으로 저장 (앞자리 0 보존)
+                    from openpyxl import load_workbook as _lw
                     up_buf = BytesIO()
                     upload_df.to_excel(up_buf, index=False)
+                    up_buf.seek(0)
+                    _wb = _lw(up_buf)
+                    _ws = _wb.active
+                    # 헤더에서 전화번호 열 찾기
+                    _phone_cols = []
+                    for _ci, _cell in enumerate(_ws[1], 1):
+                        if _cell.value and '전화번호' in str(_cell.value):
+                            _phone_cols.append(_ci)
+                    # 해당 열 텍스트 서식 + 앞자리 0 패딩
+                    for _row in _ws.iter_rows(min_row=2):
+                        for _ci in _phone_cols:
+                            _c = _row[_ci - 1]
+                            if _c.value is not None:
+                                _v = str(int(_c.value)) if isinstance(_c.value, float) else str(_c.value)
+                                # 11자리 미만이면 앞에 0 패딩
+                                if _v.isdigit() and len(_v) < 11:
+                                    _v = _v.zfill(11)
+                                _c.value = _v
+                                _c.number_format = '@'
+                    up_buf = BytesIO()
+                    _wb.save(up_buf)
                     up_buf.seek(0)
 
                     # 씨딩 데이터 추출 (개인정보 없음 — SKU/칸번호/수량만)
@@ -1074,7 +1097,7 @@ with tab2:
                         b_skus = [row for row in r["seed_sku_rows"] if row['배치'] == b]
                         all_batches[str(int(b))] = b_skus
 
-                    # 품목 준비 데이터 (배치 시트 정렬 순)
+                    # 배치 시트 데이터 (작업지시서 배치N_SKU 시트와 동일)
                     all_prep = {}
                     for b in batches:
                         b_rows = []
@@ -1102,7 +1125,18 @@ with tab2:
                         b_rows = df_b.to_dict('records')
                         if bag_l: b_rows.insert(0, {'품목명':'쇼핑백(대) 필요','중량':'','옵션':'','수량': bag_l})
                         if bag_s: b_rows.insert(0, {'품목명':'쇼핑백(소) 필요','중량':'','옵션':'','수량': bag_s})
-                        all_prep[str(int(b))] = b_rows
+                        # 배치 메타 정보 추가 (타이틀용)
+                        slot_rows_b = seed_df_r[(seed_df_r['배치']==b) & seed_df_r['SKU'].astype(str).str.startswith('[칸배정]')]
+                        order_cnt   = len(slot_rows_b)
+                        import re as _re
+                        serials = slot_rows_b['분배'].apply(lambda x: int(m.group(1)) if (m:=_re.search(r'송장순번\s*(\d+)', str(x))) else None).dropna().astype(int)
+                        serial_range = f'{serials.min()}~{serials.max()}' if not serials.empty else ''
+                        all_prep[str(int(b))] = {
+                            'items': b_rows,
+                            'order_cnt': order_cnt,
+                            'serial_range': serial_range,
+                            'total_qty': sum(r['수량'] for r in b_rows),
+                        }
 
                     # 하나의 파일로 통합 전송
                     ok = gh_save("das_data.json", {
