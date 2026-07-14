@@ -284,17 +284,18 @@ with tab_prep:
             unsafe_allow_html=True
         )
 
-    # 합계 행
-    st.markdown(
-        f'<div style="display:grid;grid-template-columns:5fr 1.5fr 2.5fr 1fr;'
-        f'background:#EDE5DC;padding:9px 12px;font-size:0.95rem;font-weight:700;'
-        f'border:1px solid #D6CEC8;border-top:none;">'
-        f'<div style="color:#8B3A2A;">합계</div>'
-        f'<div></div><div></div>'
-        f'<div style="color:#8B3A2A;text-align:center;">{total_qty}</div>'
-        f'</div>',
-        unsafe_allow_html=True
-    ) if end == total_i else None  # 마지막 페이지에만 합계 표시
+    # 합계 행 (마지막 페이지에만)
+    if end == total_i:
+        st.markdown(
+            f'<div style="display:grid;grid-template-columns:5fr 1.5fr 2.5fr 1fr;'
+            f'background:#EDE5DC;padding:9px 12px;font-size:0.95rem;font-weight:700;'
+            f'border:1px solid #D6CEC8;border-top:none;">'
+            f'<div style="color:#8B3A2A;">합계</div>'
+            f'<div></div><div></div>'
+            f'<div style="color:#8B3A2A;text-align:center;">{total_qty}</div>'
+            f'</div>',
+            unsafe_allow_html=True
+        )
 
     # 페이지 정보
     st.markdown(
