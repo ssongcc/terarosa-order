@@ -31,6 +31,14 @@ from das_distribution import run as das_run
 # 상수
 # ──────────────────────────────────────────────
 CONFIG_PATH = Path("set_config.json")
+# ── 첫 구매 찬스 상품 매핑 (매달 변경 시 여기만 수정) ──────────────────
+FIRST_PURCHASE_ITEM = {
+    "name":   "하우스 드립 블렌드",  # A열 품목명 ([첫 구매 찬스] 포함)
+    "weight": "250g",                               # B열 중량
+    "option": "갈지않음",                           # C열 옵션
+}
+# ────────────────────────────────────────────────────────────────────────
+
 REMOVE_STRINGS = [
     "/구매 안함", "/플러스", "[플러스] ", "/불필요", "/필요",
     "불필요", "필요", "/상자 없음", "/포장 없음",
@@ -233,14 +241,13 @@ def split_item(raw_name):
         return row1
 
     if "[첫 구매 찬스]" in raw_name:
-        name = raw_name.replace("[첫 구매 찬스] ", "").replace("250g", "").strip()
-        return name, "250g", ""
+        return FIRST_PURCHASE_ITEM["name"], FIRST_PURCHASE_ITEM["weight"], FIRST_PURCHASE_ITEM["option"]
 
     if "무료원두 쿠폰" in raw_name:
         return "무료원두 쿠폰 250g", "250g", "증정 원두"
 
     if "이 달의 킹콩 500g" in raw_name or "이달의 킹콩 500g" in raw_name:
-        return "[7월 KING콩] 코스타리카 치리포 리카르도 카투아이 허니", "500g", "플러스쿠폰"
+        return "[8월 KING콩] 인도네시아 아체 리방가요 P88 워시드", "500g", "플러스쿠폰"
 
     if "이 달의 드립백" in raw_name or "이달의 드립백" in raw_name:
         if "_" in raw_name:
