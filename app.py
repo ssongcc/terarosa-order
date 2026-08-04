@@ -33,10 +33,19 @@ from das_distribution import run as das_run
 CONFIG_PATH = Path("set_config.json")
 # ── 첫 구매 찬스 상품 매핑 (매달 변경 시 여기만 수정) ──────────────────
 FIRST_PURCHASE_ITEM = {
-    "name":   "하우스 드립 블렌드",  # A열 품목명 ([첫 구매 찬스] 포함)
+    "name":   "[첫 구매 찬스] 하우스 드립 블렌드",  # A열 품목명 ([첫 구매 찬스] 포함)
     "weight": "250g",                               # B열 중량
     "option": "갈지않음",                           # C열 옵션
 }
+# ────────────────────────────────────────────────────────────────────────
+
+# ── 드립백 증정 규칙 (변경 시 여기만 수정) ──────────────────────────────
+DRIP_GIFT_RULES = [
+    # (품목명 포함 키워드, 옵션 포함 키워드(없으면 None), 증정 품목명, 수량 배수)
+    ("드립백 (100개)",  None,      "[증정] 에티오피아 드립백 10개", 1),
+    ("드립백 (200개)",  None,      "[증정] 에티오피아 드립백 10개", 2),
+    ("드립백 정기 배송", "100개입", "[증정] 에티오피아 드립백 10개", 1),
+]
 # ────────────────────────────────────────────────────────────────────────
 
 REMOVE_STRINGS = [
@@ -96,6 +105,26 @@ def save_set_config(cfg: dict):
 # ──────────────────────────────────────────────
 # 세트/쿠폰 로직 (기존 그대로)
 # ──────────────────────────────────────────────
+def expand_drip_gift(df):
+    """드립백 100/200개, 정기 배송 100개입 → 에티오피아 드립백 증정 행 추가"""
+    expanded = []
+    for _, row in df.iterrows():
+        expanded.append(row)
+        name = str(row.get("품목명", "") or "").strip()
+        opt  = str(row.get("옵션", "") or "").strip()
+        qty  = int(row.get("수량", 1) or 1)
+        for kw_name, kw_opt, gift_name, mult in DRIP_GIFT_RULES:
+            if kw_name in name:
+                if kw_opt is None or kw_opt in opt:
+                    gift_row = row.copy()
+                    gift_row["품목명"] = gift_name
+                    gift_row["중량"]   = ""
+                    gift_row["옵션"]   = ""
+                    gift_row["수량"]   = qty * mult
+                    expanded.append(gift_row)
+                    break
+    return pd.DataFrame(expanded).reset_index(drop=True)
+
 def expand_set_items(df, set_config):
     if not set_config:
         return df
@@ -574,6 +603,7 @@ def process(order_file, code_file, set_config):
     raw_df = merge_gratitude_month(raw_df)
     coupon_config = load_coupon_config()
     raw_df = expand_coupon_items(raw_df, coupon_config)
+    raw_df = expand_drip_gift(raw_df)
     raw_df = expand_set_items(raw_df, set_config)
     main_df = aggregate_and_sort(raw_df)
     if "_is_set_expanded" in raw_df.columns:
