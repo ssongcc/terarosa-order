@@ -436,6 +436,38 @@ def build_sheet3(raw_df):
             rows.append({"품목명": "옥스포드 피규어", "빈칸": "", "이름": label, "수량": qty})
     return pd.DataFrame(rows)
 
+def build_sheet_best8(raw_df_before_prefix):
+    """[테라로사 BEST 8] 상품만 추출 - 접두사 제거 전 원본 기준"""
+    mask = raw_df_before_prefix["품목명_원본"].astype(str).str.contains(
+        r"\[테라로사 BEST 8\]", regex=True, na=False
+    )
+    df = raw_df_before_prefix[mask].copy()
+    if df.empty:
+        return pd.DataFrame()
+    # 접두사 제거 후 기존 split_item 로직으로 분해
+    rows = []
+    for _, row in df.iterrows():
+        cleaned = str(row["품목명_원본"]).strip()
+        for prefix in PREFIX_REMOVE:
+            if cleaned.startswith(prefix):
+                cleaned = cleaned[len(prefix):]
+        result = split_item(cleaned)
+        if isinstance(result, list):
+            for r in result:
+                rows.append({"품목명": r[0], "중량": r[1], "옵션": r[2], "수량": row["수량"]})
+        else:
+            rows.append({"품목명": result[0], "중량": result[1], "옵션": result[2], "수량": row["수량"]})
+    df_out = pd.DataFrame(rows)
+    # 동일 품목 합산 후 주문취합 동일 정렬
+    df_out["수량"] = pd.to_numeric(df_out["수량"], errors="coerce").fillna(0).astype(int)
+    df_out = df_out.groupby(["품목명","중량","옵션"], sort=False, as_index=False)["수량"].sum()
+    df_out["_group"]   = df_out.apply(classify, axis=1)
+    df_out["_g_order"] = df_out["_group"].map(GROUP_ORDER)
+    df_out["_w_gram"]  = df_out["중량"].apply(weight_to_gram)
+    df_out = df_out.sort_values(["_g_order","품목명","_w_gram","옵션"],
+                                ascending=[True,True,False,True])
+    return df_out.drop(columns=["_group","_g_order","_w_gram"]).reset_index(drop=True)
+
 def build_sheet2(main_df):
     rows = {}
     king_mask = (
@@ -594,6 +626,8 @@ def process(order_file, code_file, set_config):
     raw_df  = load_order_data(order_file)
     code_df = load_code_data(code_file)
     sheet3_df = build_sheet3(raw_df)
+    # [테라로사 BEST 8] 시트용 - 접두사 제거 전 원본 캡처
+    raw_df_for_best8 = raw_df.copy()
     raw_df["품목명_정리"] = raw_df["품목명_원본"].apply(clean_item_name)
     expanded_rows = []
     for _, row in raw_df.iterrows():
@@ -633,6 +667,39 @@ def process(order_file, code_file, set_config):
     ws2 = wb.create_sheet("원두 중량 합산")
     write_simple_sheet(ws2, sheet2_df, ["품목명", "중량(kg)"])
     ws3 = wb.create_sheet("바리스타·농부·농장주")
+    best8_df = build_sheet_best8(raw_df_for_best8)
+    if not best8_df.empty:
+        ws_best8 = wb.create_sheet("[BEST 8] 주문 현황")
+        write_simple_sheet(ws_best8, best8_df.rename(columns={
+            "품목명":"품목명","중량":"중량","옵션":"옵션","수량":"수량"}),
+            ["품목명","중량","옵션","수량"])
+        # 주문취합과 동일 스타일 적용
+        ws_best8.column_dimensions["A"].width = 42
+        ws_best8.column_dimensions["B"].width = 10
+        ws_best8.column_dimensions["C"].width = 30
+        ws_best8.column_dimensions["D"].width = 8
+        from openpyxl.styles import Font, PatternFill, Alignment
+        header_fill = PatternFill("solid", fgColor=COLOR_HEADER)
+        header_font = Font(name="Arial", size=10, bold=True)
+        body_font   = Font(name="Arial", size=10)
+        white_fill  = PatternFill("solid", fgColor=COLOR_WHITE)
+        drip_fill   = PatternFill("solid", fgColor=COLOR_DRIP)
+        for c in ws_best8[1]:
+            c.font = header_font; c.fill = header_fill
+            c.alignment = Alignment(horizontal="center"); c.border = THIN_BORDER
+        prev_name = None
+        for r in range(2, ws_best8.max_row + 1):
+            name_val = ws_best8.cell(r,1).value
+            grp = classify({"품목명": name_val or "", "중량": ws_best8.cell(r,2).value or ""})
+            fill = drip_fill if grp == "드립백" else white_fill
+            for c in ws_best8[r]:
+                c.font = body_font; c.fill = fill; c.border = THIN_BORDER
+        # 합계 행
+        last = ws_best8.max_row + 1
+        ws_best8.cell(last, 1, "합계").font = Font(name="Arial", size=10, bold=True)
+        ws_best8.cell(last, 4, f"=SUM(D2:D{last-1})").font = Font(name="Arial", size=10, bold=True)
+        for c in ws_best8[last]:
+            c.fill = PatternFill("solid", fgColor=COLOR_HEADER); c.border = THIN_BORDER
     write_simple_sheet(ws3, sheet3_df, ["품목명", "빈칸", "이름", "수량"])
     insert_sheet3_into_sheet1(wb)
     postprocess_festa_rows(wb["주문취합"])
