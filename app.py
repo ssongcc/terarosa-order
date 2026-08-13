@@ -669,7 +669,7 @@ def process(order_file, code_file, set_config):
     ws3 = wb.create_sheet("바리스타·농부·농장주")
     best8_df = build_sheet_best8(raw_df_for_best8)
     if not best8_df.empty:
-        ws_best8 = wb.create_sheet("[BEST 8] 주문 현황")
+        ws_best8 = wb.create_sheet("BEST8 주문 현황")
         write_simple_sheet(ws_best8, best8_df.rename(columns={
             "품목명":"품목명","중량":"중량","옵션":"옵션","수량":"수량"}),
             ["품목명","중량","옵션","수량"])
