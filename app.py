@@ -39,6 +39,14 @@ FIRST_PURCHASE_ITEM = {
 }
 # ────────────────────────────────────────────────────────────────────────
 
+# ── 품목명 앞 접두사 제거 목록 (추가/삭제 시 여기만 수정) ─────────────────
+# 제거 후 기존 상품과 합산, 원두인 경우 중량 합산 시트에도 포함
+PREFIX_REMOVE = [
+    "[테라로사 BEST 8] ",   # 예: "[테라로사 BEST 8] 강릉 블렌드" → "강릉 블렌드"
+    # 추가 예시: "[기획전] ",
+]
+# ────────────────────────────────────────────────────────────────────────
+
 # ── 드립백 증정 규칙 (변경 시 여기만 수정) ──────────────────────────────
 DRIP_GIFT_RULES = [
     # (품목명 포함 키워드, 옵션 포함 키워드(없으면 None), 증정 품목명, 수량 배수)
@@ -205,6 +213,9 @@ def load_code_data(file):
 def clean_item_name(name):
     for s in REMOVE_STRINGS:
         name = name.replace(s, "")
+    for prefix in PREFIX_REMOVE:
+        if name.startswith(prefix):
+            name = name[len(prefix):]
     for old, new in TEXT_REPLACE.items():
         name = name.replace(old, new)
     if "어센틱" in name and "정기 배송" in name:
