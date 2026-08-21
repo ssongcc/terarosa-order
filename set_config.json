@@ -91,7 +91,13 @@
     {
       "name": "보름달 블렌드",
       "qty": 1,
-      "weight": "250g",
+      "weight": "",
+      "option": ""
+    },
+    {
+      "name": "테라로사 드리퍼",
+      "qty": 1,
+      "weight": "",
       "option": ""
     }
   ]
