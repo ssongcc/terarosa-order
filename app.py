@@ -47,6 +47,30 @@ PREFIX_REMOVE = [
 ]
 # ────────────────────────────────────────────────────────────────────────
 
+# ── 세트이지만 원두로 분류할 품목 키워드 (추가/삭제 시 여기만 수정) ────────
+# 품목명에 "세트"가 있어도 원두로 분류하여 중량 합산에 포함
+BEAN_SET_KEYWORDS = [
+    "보름달 블렌드 & 드리퍼 세트",   # 26년 추석
+    # "추가 예시 세트명",
+]
+# ────────────────────────────────────────────────────────────────────────
+
+# ── 세트 구성품 자동 추가 규칙 (추가/삭제 시 여기만 수정) ────────────────
+# 품목명 키워드 매칭 시 행을 복사해 별도 구성품 행 추가
+# (add_name: A열, add_weight: B열, add_option: C열, qty_mult: 수량 배수)
+BONUS_ITEM_RULES = [
+    {
+        "keyword":    "보름달 블렌드 & 드리퍼 세트",  # 품목명에 이 문자열 포함 시
+        "add_name":   "보름달 블렌드 & 드리퍼 세트",  # A열 (원본 품목명 그대로)
+        "add_weight": "",                             # B열 중량 삭제
+        "add_option": "테라로사 드리퍼",               # C열 옵션
+        "qty_mult":   1,                              # 수량 배수
+    },
+    # 추가 예시:
+    # {"keyword": "다른 세트명", "add_name": "다른 세트명", "add_weight": "", "add_option": "구성품명", "qty_mult": 1},
+]
+# ────────────────────────────────────────────────────────────────────────
+
 # ── 드립백 증정 규칙 (변경 시 여기만 수정) ──────────────────────────────
 DRIP_GIFT_RULES = [
     # (품목명 포함 키워드, 옵션 포함 키워드(없으면 None), 증정 품목명, 수량 배수)
@@ -131,6 +155,24 @@ def expand_drip_gift(df):
                     gift_row["수량"]   = qty * mult
                     expanded.append(gift_row)
                     break
+    return pd.DataFrame(expanded).reset_index(drop=True)
+
+def expand_bonus_items(df):
+    """세트 구성품 자동 추가 (BONUS_ITEM_RULES 기준)"""
+    expanded = []
+    for _, row in df.iterrows():
+        expanded.append(row)
+        name = str(row.get("품목명", "") or "").strip()
+        qty  = int(row.get("수량", 1) or 1)
+        for rule in BONUS_ITEM_RULES:
+            if rule["keyword"] in name:
+                bonus = row.copy()
+                bonus["품목명"] = rule["add_name"]
+                bonus["중량"]   = rule["add_weight"]
+                bonus["옵션"]   = rule["add_option"]
+                bonus["수량"]   = qty * rule["qty_mult"]
+                expanded.append(bonus)
+                break
     return pd.DataFrame(expanded).reset_index(drop=True)
 
 def expand_set_items(df, set_config):
@@ -352,6 +394,9 @@ def classify(row):
     name, weight = row["품목명"], str(row["중량"])
     if "드립백" in name: return "드립백"
     if "원두&커피 스쿱 세트" in name or "원두 & 커피 스쿱 세트" in name: return "스쿱세트"
+    # BEAN_SET_KEYWORDS에 있으면 세트라도 원두로 분류
+    if any(kw in name for kw in BEAN_SET_KEYWORDS):
+        if re.search(r"\d+\s*(?:g|kg)", weight, re.IGNORECASE): return "원두"
     if "세트" in name: return "세트"
     if re.search(r"\d+\s*(?:g|kg)", weight, re.IGNORECASE): return "원두"
     return "기타"
@@ -649,6 +694,7 @@ def process(order_file, code_file, set_config):
     coupon_config = load_coupon_config()
     raw_df = expand_coupon_items(raw_df, coupon_config)
     raw_df = expand_drip_gift(raw_df)
+    raw_df = expand_bonus_items(raw_df)
     raw_df = expand_set_items(raw_df, set_config)
     main_df = aggregate_and_sort(raw_df)
     if "_is_set_expanded" in raw_df.columns:
