@@ -66,6 +66,14 @@ BONUS_ITEM_RULES = [
         "add_option": "테라로사 드리퍼",               # C열 옵션
         "qty_mult":   1,                              # 수량 배수
     },
+    {
+        "keyword":    "엑스트라 버진 올리브 오일 세트",               # 품목명에 이 문자열 포함 시
+        "add_name":   "[26년 추석] 엑스트라 버진 올리브 오일 세트",    # A열 (옵션 제거)
+        "add_weight": "",                                             # B열 중량 삭제
+        "add_option": "미틸로 오가닉 올리브오일 250ml",               # C열 옵션
+        "qty_mult":   2,                                              # 수량 2배
+        "strip_option": True,                                         # 원본 옵션 제거 후 A열 사용
+    },
     # 추가 예시:
     # {"keyword": "다른 세트명", "add_name": "다른 세트명", "add_weight": "", "add_option": "구성품명", "qty_mult": 1},
 ]
@@ -167,7 +175,7 @@ def expand_bonus_items(df):
         for rule in BONUS_ITEM_RULES:
             if rule["keyword"] in name:
                 bonus = row.copy()
-                bonus["품목명"] = rule["add_name"]
+                bonus["품목명"] = rule["add_name"]   # strip_option=True면 옵션 없는 이름
                 bonus["중량"]   = rule["add_weight"]
                 bonus["옵션"]   = rule["add_option"]
                 bonus["수량"]   = qty * rule["qty_mult"]
