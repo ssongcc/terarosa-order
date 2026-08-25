@@ -85,6 +85,12 @@
       "qty": 1,
       "weight": "250g",
       "option": "갈지않음"
+    },
+    {
+      "name": "드리퍼",
+      "qty": 1,
+      "weight": "",
+      "option": "갈지않음"
     }
   ]
 }
