@@ -62,7 +62,7 @@ BONUS_ITEM_RULES = [
     {
         "keyword": "보름달 블렌드 & 드리퍼 세트",
         "add_rows": [
-            {"name": "[26년 추석] 보름달 블렌드 & 드리퍼 세트", "weight": "", "option": "드리퍼", "qty_mult": 1},
+            {"name": "[26년 추석] 보름달 블렌드 & 드리퍼 세트", "weight": "", "option": "테라로사 드리퍼", "qty_mult": 1},
         ],
     },
     {
@@ -460,16 +460,30 @@ def aggregate_and_sort(df):
     ).reset_index(drop=True)
     df["_g_order"] = df["_group"].map(GROUP_ORDER)
     df["_w_gram"]  = df["중량"].apply(weight_to_gram)
-    # [26년 추석] 포함(드립백 제외)은 최상단 (0), 나머지는 1
-    df["_chuseok"] = df.apply(
-        lambda r: 0 if "[26년 추석]" in r["품목명"] and r["_group"] != "드립백" else 1,
-        axis=1
-    )
+    # 정렬 우선순위:
+    # 0: 추석 세트(중량 없음, 드립백 제외) → 최상단
+    # 1: 드립백 (추석 드립백 포함)
+    # 2: 추석 원두(중량 있음, [26년 추석] 포함) → 원두 최상단
+    # 3: 일반 원두/기타/스쿱세트
+    def _sort_priority(r):
+        is_chuseok = "[26년 추석]" in r["품목명"]
+        is_drip    = r["_group"] == "드립백"
+        has_weight = r["_w_gram"] > 0
+        if is_chuseok and not is_drip and not has_weight:
+            return 0  # 추석 세트 (드리퍼 등 중량 없는 것)
+        if r["_group"] in ("세트", "기타", "스쿱세트") and not is_chuseok:
+            return 1  # 일반 세트/기타/스쿱세트
+        if is_drip:
+            return 2  # 드립백 전체
+        if is_chuseok and has_weight:
+            return 3  # 추석 원두
+        return 4      # 일반 원두
+    df["_priority"] = df.apply(_sort_priority, axis=1)
     df.sort_values(
-        ["_chuseok", "_g_order", "품목명", "_w_gram", "옵션"],
-        ascending=[True, True, True, False, True], inplace=True
+        ["_priority", "품목명", "_w_gram", "옵션"],
+        ascending=[True, True, False, True], inplace=True
     )
-    return df.drop(columns=["_chuseok"]).reset_index(drop=True)
+    return df.drop(columns=["_priority"]).reset_index(drop=True)
 
 def match_code(row, code_df):
     name   = str(row["품목명"]).strip()
