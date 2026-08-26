@@ -62,7 +62,7 @@ BONUS_ITEM_RULES = [
     {
         "keyword": "보름달 블렌드 & 드리퍼 세트",
         "add_rows": [
-            {"name": "보름달 블렌드 & 드리퍼 세트", "weight": "", "option": "테라로사 드리퍼", "qty_mult": 1},
+            {"name": "[26년 추석] 보름달 블렌드 & 드리퍼 세트", "weight": "", "option": "테라로사 드리퍼", "qty_mult": 1},
         ],
     },
     {
@@ -120,6 +120,7 @@ COLOR_SCOOP  = "FFF2CC"
 COLOR_HEADER = "D9D9D9"
 COLOR_WHITE  = "FFFFFF"
 COLOR_SET    = "DDEEFF"
+COLOR_CHUSEOK = "C9E8F5"  # 연한 하늘색 — [26년 추석] 상품
 COL_WIDTHS   = {"A": 42, "B": 10, "C": 35, "D": 8, "E": 18}
 THIN_BORDER  = Border(
     left=Side(style="thin", color="BFBFBF"),
@@ -715,6 +716,14 @@ def postprocess_festa_rows(ws):
         if c_val and "플러스쿠폰" in str(c_val):
             for cell in row[:5]:
                 cell.fill = FILL_GREEN
+
+    # [26년 추석] 상품 연한 하늘색
+    FILL_CHUSEOK = PatternFill("solid", fgColor=COLOR_CHUSEOK)
+    for row in ws.iter_rows(min_row=2):
+        a_val = row[0].value
+        if a_val and "[26년 추석]" in str(a_val):
+            for cell in row[:5]:
+                cell.fill = FILL_CHUSEOK
 
 def process(order_file, code_file, set_config):
     raw_df  = load_order_data(order_file)
