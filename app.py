@@ -56,26 +56,43 @@ BEAN_SET_KEYWORDS = [
 # ────────────────────────────────────────────────────────────────────────
 
 # ── 세트 구성품 자동 추가 규칙 (추가/삭제 시 여기만 수정) ────────────────
-# 품목명 키워드 매칭 시 행을 복사해 별도 구성품 행 추가
-# (add_name: A열, add_weight: B열, add_option: C열, qty_mult: 수량 배수)
+# 품목명 키워드 매칭 시 원본 행 유지 + 추가 행(add_rows) 삽입
+# add_rows: [{"name": A열, "weight": B열, "option": C열, "qty_mult": 수량배수}, ...]
 BONUS_ITEM_RULES = [
     {
-        "keyword":    "보름달 블렌드 & 드리퍼 세트",  # 품목명에 이 문자열 포함 시
-        "add_name":   "보름달 블렌드 & 드리퍼 세트",  # A열 (원본 품목명 그대로)
-        "add_weight": "",                             # B열 중량 삭제
-        "add_option": "테라로사 드리퍼",               # C열 옵션
-        "qty_mult":   1,                              # 수량 배수
+        "keyword": "보름달 블렌드 & 드리퍼 세트",
+        "add_rows": [
+            {"name": "보름달 블렌드 & 드리퍼 세트", "weight": "", "option": "테라로사 드리퍼", "qty_mult": 1},
+        ],
     },
     {
-        "keyword":    "엑스트라 버진 올리브 오일 세트",               # 품목명에 이 문자열 포함 시
-        "add_name":   "[26년 추석] 엑스트라 버진 올리브 오일 세트",    # A열 (옵션 제거)
-        "add_weight": "",                                             # B열 중량 삭제
-        "add_option": "미틸로 오가닉 올리브오일 250ml",               # C열 옵션
-        "qty_mult":   2,                                              # 수량 2배
-        "strip_option": True,                                         # 원본 옵션 제거 후 A열 사용
+        "keyword": "엑스트라 버진 올리브 오일 세트",
+        "add_rows": [
+            {"name": "[26년 추석] 엑스트라 버진 올리브 오일 세트", "weight": "", "option": "미틸로 오가닉 올리브오일 250ml", "qty_mult": 2},
+        ],
+    },
+    {
+        "keyword": "홈브루잉 스타터팩",
+        "replace_original": True,   # 원본 행 대신 아래 행들로 완전 교체
+        "add_rows": [
+            {"name": "[26년 추석] 홈브루잉 스타터팩",         "weight": "",     "option": "드리퍼",   "qty_mult": 1},
+            {"name": "어센틱 에스프레소 블렌드",               "weight": "250g", "option": "갈지않음", "qty_mult": 1},
+            {"name": "에티오피아 예가체페 아리차 토착종 워시드", "weight": "250g", "option": "갈지않음", "qty_mult": 1},
+        ],
     },
     # 추가 예시:
-    # {"keyword": "다른 세트명", "add_name": "다른 세트명", "add_weight": "", "add_option": "구성품명", "qty_mult": 1},
+    # {"keyword": "새 세트명", "add_rows": [{"name": "구성품A", "weight": "250g", "option": "갈지않음", "qty_mult": 1}]},
+]
+# ────────────────────────────────────────────────────────────────────────
+
+# ── 추석 세트 상품 목록 (시즌 종료 시 빈 리스트로 변경) ───────────────────
+CHUSEOK_SETS = [
+    "[26년 추석] 간편커피 & 머그 세트",
+    "[26년 추석] 드립백 & 머그 세트",
+    "[26년 추석] 싱글오리진 파우더 커피 세트 (30개입)",
+    "[26년 추석] 엑스트라 버진 올리브 오일 세트",
+    "[26년 추석] 보름달 블렌드 & 드리퍼 세트",
+    "[26년 추석] 홈브루잉 스타터팩",
 ]
 # ────────────────────────────────────────────────────────────────────────
 
@@ -166,21 +183,30 @@ def expand_drip_gift(df):
     return pd.DataFrame(expanded).reset_index(drop=True)
 
 def expand_bonus_items(df):
-    """세트 구성품 자동 추가 (BONUS_ITEM_RULES 기준)"""
+    """세트 구성품 자동 추가 (BONUS_ITEM_RULES 기준) — 다중 행 추가 지원
+    replace_original=True인 규칙은 원본 행을 add_rows로 완전 대체
+    replace_original=False(기본)는 원본 행 유지 + add_rows 추가
+    """
     expanded = []
     for _, row in df.iterrows():
-        expanded.append(row)
         name = str(row.get("품목명", "") or "").strip()
         qty  = int(row.get("수량", 1) or 1)
+        matched = False
         for rule in BONUS_ITEM_RULES:
             if rule["keyword"] in name:
-                bonus = row.copy()
-                bonus["품목명"] = rule["add_name"]   # strip_option=True면 옵션 없는 이름
-                bonus["중량"]   = rule["add_weight"]
-                bonus["옵션"]   = rule["add_option"]
-                bonus["수량"]   = qty * rule["qty_mult"]
-                expanded.append(bonus)
+                matched = True
+                if not rule.get("replace_original", False):
+                    expanded.append(row)  # 원본 유지
+                for add in rule["add_rows"]:
+                    bonus = row.copy()
+                    bonus["품목명"] = add["name"]
+                    bonus["중량"]   = add["weight"]
+                    bonus["옵션"]   = add["option"]
+                    bonus["수량"]   = qty * add["qty_mult"]
+                    expanded.append(bonus)
                 break
+        if not matched:
+            expanded.append(row)
     return pd.DataFrame(expanded).reset_index(drop=True)
 
 def expand_set_items(df, set_config):
@@ -489,6 +515,21 @@ def build_sheet3(raw_df):
             rows.append({"품목명": "옥스포드 피규어", "빈칸": "", "이름": label, "수량": qty})
     return pd.DataFrame(rows)
 
+def build_sheet_chuseok(raw_df_original):
+    """추석 세트 상품 합산 시트 생성"""
+    if not CHUSEOK_SETS:
+        return pd.DataFrame()
+    rows = []
+    for set_name in CHUSEOK_SETS:
+        # 품목명_원본에서 해당 세트명 포함 행 찾아 수량 합산
+        mask = raw_df_original["품목명_원본"].astype(str).str.contains(
+            re.escape(set_name.split("]")[1].strip()) if "]" in set_name else re.escape(set_name),
+            regex=True, na=False
+        )
+        qty = int(raw_df_original.loc[mask, "수량"].sum()) if mask.any() else 0
+        rows.append({"세트명": set_name, "수량": qty})
+    return pd.DataFrame(rows)
+
 def build_sheet_best8(raw_df_before_prefix):
     """[테라로사 BEST 8] 상품만 추출 - 접두사 제거 전 원본 기준"""
     mask = raw_df_before_prefix["품목명_원본"].astype(str).str.contains(
@@ -679,8 +720,9 @@ def process(order_file, code_file, set_config):
     raw_df  = load_order_data(order_file)
     code_df = load_code_data(code_file)
     sheet3_df = build_sheet3(raw_df)
-    # [테라로사 BEST 8] 시트용 - 접두사 제거 전 원본 캡처
+    # 접두사 제거 전 원본 캡처 (BEST8, 추석 시트용)
     raw_df_for_best8 = raw_df.copy()
+    raw_df_original  = raw_df.copy()
     raw_df["품목명_정리"] = raw_df["품목명_원본"].apply(clean_item_name)
     expanded_rows = []
     for _, row in raw_df.iterrows():
@@ -720,7 +762,34 @@ def process(order_file, code_file, set_config):
     apply_style(ws1, main_df)
     ws2 = wb.create_sheet("원두 중량 합산")
     write_simple_sheet(ws2, sheet2_df, ["품목명", "중량(kg)"])
-    ws3 = wb.create_sheet("바리스타·농부·농장주")
+    if not sheet3_df.empty:
+        ws3 = wb.create_sheet("바리스타·농부·농장주")
+    # 추석 세트 현황 시트
+    chuseok_df = build_sheet_chuseok(raw_df_original)
+    if not chuseok_df.empty and CHUSEOK_SETS:
+        ws_chu = wb.create_sheet("추석 세트 현황")
+        ws_chu.append(["세트명", "수량"])
+        from openpyxl.styles import Font, PatternFill, Alignment
+        header_fill = PatternFill("solid", fgColor="8B3A2A")
+        header_font = Font(name="Arial", size=10, bold=True, color="FFFFFF")
+        body_font   = Font(name="Arial", size=10)
+        for c in ws_chu[1]:
+            c.font = header_font; c.fill = header_fill
+            c.alignment = Alignment(horizontal="center"); c.border = THIN_BORDER
+        for _, r in chuseok_df.iterrows():
+            ws_chu.append([r["세트명"], r["수량"]])
+        for r in range(2, ws_chu.max_row + 1):
+            for c in ws_chu[r]:
+                c.font = body_font; c.border = THIN_BORDER
+        # 합계 행
+        last = ws_chu.max_row + 1
+        ws_chu.cell(last, 1, "합계").font = Font(name="Arial", size=10, bold=True)
+        ws_chu.cell(last, 2, f"=SUM(B2:B{last-1})").font = Font(name="Arial", size=10, bold=True)
+        for c in ws_chu[last]:
+            c.fill = PatternFill("solid", fgColor=COLOR_HEADER); c.border = THIN_BORDER
+        ws_chu.column_dimensions["A"].width = 45
+        ws_chu.column_dimensions["B"].width = 8
+
     best8_df = build_sheet_best8(raw_df_for_best8)
     if not best8_df.empty:
         ws_best8 = wb.create_sheet("BEST8 주문 현황")
@@ -754,8 +823,9 @@ def process(order_file, code_file, set_config):
         ws_best8.cell(last, 4, f"=SUM(D2:D{last-1})").font = Font(name="Arial", size=10, bold=True)
         for c in ws_best8[last]:
             c.fill = PatternFill("solid", fgColor=COLOR_HEADER); c.border = THIN_BORDER
-    write_simple_sheet(ws3, sheet3_df, ["품목명", "빈칸", "이름", "수량"])
-    insert_sheet3_into_sheet1(wb)
+    if not sheet3_df.empty:
+        write_simple_sheet(ws3, sheet3_df, ["품목명", "빈칸", "이름", "수량"])
+        insert_sheet3_into_sheet1(wb)
     postprocess_festa_rows(wb["주문취합"])
     buf = BytesIO()
     wb.save(buf); buf.seek(0)
