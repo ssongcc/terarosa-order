@@ -460,9 +460,16 @@ def aggregate_and_sort(df):
     ).reset_index(drop=True)
     df["_g_order"] = df["_group"].map(GROUP_ORDER)
     df["_w_gram"]  = df["중량"].apply(weight_to_gram)
-    df.sort_values(["_g_order", "품목명", "_w_gram", "옵션"],
-                   ascending=[True, True, False, True], inplace=True)
-    return df.reset_index(drop=True)
+    # [26년 추석] 포함(드립백 제외)은 최상단 (0), 나머지는 1
+    df["_chuseok"] = df.apply(
+        lambda r: 0 if "[26년 추석]" in r["품목명"] and r["_group"] != "드립백" else 1,
+        axis=1
+    )
+    df.sort_values(
+        ["_chuseok", "_g_order", "품목명", "_w_gram", "옵션"],
+        ascending=[True, True, True, False, True], inplace=True
+    )
+    return df.drop(columns=["_chuseok"]).reset_index(drop=True)
 
 def match_code(row, code_df):
     name   = str(row["품목명"]).strip()
