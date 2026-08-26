@@ -62,7 +62,7 @@ BONUS_ITEM_RULES = [
     {
         "keyword": "보름달 블렌드 & 드리퍼 세트",
         "add_rows": [
-            {"name": "[26년 추석] 보름달 블렌드 & 드리퍼 세트", "weight": "", "option": "테라로사 드리퍼", "qty_mult": 1},
+            {"name": "[26년 추석] 보름달 블렌드 & 드리퍼 세트", "weight": "", "option": "드리퍼", "qty_mult": 1},
         ],
     },
     {
