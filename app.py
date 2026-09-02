@@ -377,7 +377,7 @@ def split_item(raw_name):
         return "무료원두 쿠폰 250g", "250g", "증정 원두"
 
     if "이 달의 킹콩 500g" in raw_name or "이달의 킹콩 500g" in raw_name:
-        return "[8월 KING콩] 인도네시아 아체 리방가요 P88 워시드", "500g", "플러스쿠폰"
+        return "[9월 KING콩] 에티오피아 리무 아가로 토착종 워시드", "500g", "플러스쿠폰"
 
     if "이 달의 드립백" in raw_name or "이달의 드립백" in raw_name:
         if "_" in raw_name:
