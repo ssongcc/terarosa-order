@@ -33,7 +33,7 @@ from das_distribution import run as das_run
 CONFIG_PATH = Path("set_config.json")
 # ── 첫 구매 찬스 상품 매핑 (매달 변경 시 여기만 수정) ──────────────────
 FIRST_PURCHASE_ITEM = {
-    "name":   "하우스 드립 블렌드",  # A열 품목명 ([첫 구매 찬스] 제거)
+    "name":   "보름달 블렌드",  # A열 품목명 ([첫 구매 찬스] 제거)
     "weight": "250g",               # B열 중량
     "option": "갈지않음",           # C열 옵션
 }
