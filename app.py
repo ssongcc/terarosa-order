@@ -550,21 +550,6 @@ def build_sheet3(raw_df):
             rows.append({"품목명": "옥스포드 피규어", "빈칸": "", "이름": label, "수량": qty})
     return pd.DataFrame(rows)
 
-def build_sheet_chuseok(raw_df_original):
-    """추석 세트 상품 합산 시트 생성"""
-    if not CHUSEOK_SETS:
-        return pd.DataFrame()
-    rows = []
-    for set_name in CHUSEOK_SETS:
-        # 품목명_원본에서 해당 세트명 포함 행 찾아 수량 합산
-        mask = raw_df_original["품목명_원본"].astype(str).str.contains(
-            re.escape(set_name.split("]")[1].strip()) if "]" in set_name else re.escape(set_name),
-            regex=True, na=False
-        )
-        qty = int(raw_df_original.loc[mask, "수량"].sum()) if mask.any() else 0
-        rows.append({"세트명": set_name, "수량": qty})
-    return pd.DataFrame(rows)
-
 def build_sheet_best8(raw_df_before_prefix):
     """[테라로사 BEST 8] 상품만 추출 - 접두사 제거 전 원본 기준"""
     mask = raw_df_before_prefix["품목명_원본"].astype(str).str.contains(
@@ -765,7 +750,6 @@ def process(order_file, code_file, set_config):
     sheet3_df = build_sheet3(raw_df)
     # 접두사 제거 전 원본 캡처 (BEST8, 추석 시트용)
     raw_df_for_best8 = raw_df.copy()
-    raw_df_original  = raw_df.copy()
     raw_df["품목명_정리"] = raw_df["품목명_원본"].apply(clean_item_name)
     expanded_rows = []
     for _, row in raw_df.iterrows():
@@ -807,32 +791,6 @@ def process(order_file, code_file, set_config):
     write_simple_sheet(ws2, sheet2_df, ["품목명", "중량(kg)"])
     if not sheet3_df.empty:
         ws3 = wb.create_sheet("바리스타·농부·농장주")
-    # 추석 세트 현황 시트
-    chuseok_df = build_sheet_chuseok(raw_df_original)
-    if not chuseok_df.empty and CHUSEOK_SETS:
-        ws_chu = wb.create_sheet("추석 세트 현황")
-        ws_chu.append(["세트명", "수량"])
-        from openpyxl.styles import Font, PatternFill, Alignment
-        header_fill = PatternFill("solid", fgColor="8B3A2A")
-        header_font = Font(name="Arial", size=10, bold=True, color="FFFFFF")
-        body_font   = Font(name="Arial", size=10)
-        for c in ws_chu[1]:
-            c.font = header_font; c.fill = header_fill
-            c.alignment = Alignment(horizontal="center"); c.border = THIN_BORDER
-        for _, r in chuseok_df.iterrows():
-            ws_chu.append([r["세트명"], r["수량"]])
-        for r in range(2, ws_chu.max_row + 1):
-            for c in ws_chu[r]:
-                c.font = body_font; c.border = THIN_BORDER
-        # 합계 행
-        last = ws_chu.max_row + 1
-        ws_chu.cell(last, 1, "합계").font = Font(name="Arial", size=10, bold=True)
-        ws_chu.cell(last, 2, f"=SUM(B2:B{last-1})").font = Font(name="Arial", size=10, bold=True)
-        for c in ws_chu[last]:
-            c.fill = PatternFill("solid", fgColor=COLOR_HEADER); c.border = THIN_BORDER
-        ws_chu.column_dimensions["A"].width = 45
-        ws_chu.column_dimensions["B"].width = 8
-
     best8_df = build_sheet_best8(raw_df_for_best8)
     if not best8_df.empty:
         ws_best8 = wb.create_sheet("BEST8 주문 현황")
