@@ -32,10 +32,10 @@ from das_distribution import run as das_run
 # ──────────────────────────────────────────────
 CONFIG_PATH = Path("set_config.json")
 # ── 첫 구매 찬스 상품 매핑 (매달 변경 시 여기만 수정) ──────────────────
+# 품목명은 [첫 구매 찬스] 제거 후 원본 그대로 사용 (상품마다 달라도 자동 처리)
 FIRST_PURCHASE_ITEM = {
-    "name":   "보름달 블렌드",  # A열 품목명 ([첫 구매 찬스] 제거)
-    "weight": "250g",               # B열 중량
-    "option": "갈지않음",           # C열 옵션
+    "weight": "250g",     # B열 중량
+    "option": "갈지않음", # C열 옵션
 }
 # ────────────────────────────────────────────────────────────────────────
 
@@ -371,7 +371,17 @@ def split_item(raw_name):
         return row1
 
     if "[첫 구매 찬스]" in raw_name:
-        return FIRST_PURCHASE_ITEM["name"], FIRST_PURCHASE_ITEM["weight"], FIRST_PURCHASE_ITEM["option"]
+        # [첫 구매 찬스] 제거 후 일반 split_item 로직으로 분해
+        cleaned = raw_name.replace("[첫 구매 찬스] ", "").replace("[첫 구매 찬스]", "").strip()
+        if "_" in cleaned:
+            name, rest = cleaned.split("_", 1)
+            weight, option = extract_weight(rest)
+            if not option:
+                option = FIRST_PURCHASE_ITEM["option"]
+            if not weight:
+                weight = FIRST_PURCHASE_ITEM["weight"]
+            return name.strip(), weight, option
+        return cleaned, FIRST_PURCHASE_ITEM["weight"], FIRST_PURCHASE_ITEM["option"]
 
     if "무료원두 쿠폰" in raw_name:
         return "무료원두 쿠폰 250g", "250g", "증정 원두"
