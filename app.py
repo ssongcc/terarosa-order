@@ -378,10 +378,9 @@ def split_item(raw_name):
             weight, option = extract_weight(rest)
             if not option:
                 option = FIRST_PURCHASE_ITEM["option"]
-            if not weight:
-                weight = FIRST_PURCHASE_ITEM["weight"]
+            # 중량이 없으면 강제 삽입 안 함 (드립백 세트 등 중량 없는 상품 대응)
             return name.strip(), weight, option
-        return cleaned, FIRST_PURCHASE_ITEM["weight"], FIRST_PURCHASE_ITEM["option"]
+        return cleaned, "", FIRST_PURCHASE_ITEM["option"]
 
     if "무료원두 쿠폰" in raw_name:
         return "무료원두 쿠폰 250g", "250g", "증정 원두"
