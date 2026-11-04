@@ -109,6 +109,17 @@ CHUSEOK_SETS = [
 ]
 # ────────────────────────────────────────────────────────────────────────
 
+# ── 세트 수량 현황 시트 대상 상품 (추가/삭제 시 여기만 수정) ──────────────
+# 원본 상품명에 아래 문자열이 포함된 행의 수량을 합산하여 별도 시트로 출력
+# 비워두면([]) 시트가 생성되지 않음
+SET_COUNT_ITEMS = [
+    "이달의 드립백 (10개입) & 유리머그",
+    "시그니처 에티오피아 세트",
+    "홀리데이 드립백 & 머그 선물세트",
+    "홀리데이 드립백 리추얼 선물세트 (24개입)",
+]
+# ────────────────────────────────────────────────────────────────────────
+
 # ── 드립백 증정 규칙 (변경 시 여기만 수정) ──────────────────────────────
 DRIP_GIFT_RULES = []  # 이벤트 종료
 # ────────────────────────────────────────────────────────────────────────
@@ -591,6 +602,17 @@ def build_sheet_best8(raw_df_before_prefix):
                                 ascending=[True,True,False,True])
     return df_out.drop(columns=["_group","_g_order","_w_gram"]).reset_index(drop=True)
 
+def build_sheet_set_count(raw_df_original):
+    """SET_COUNT_ITEMS 상품별 세트 수량 합산 (접두사 제거 전 원본 상품명 기준)"""
+    if not SET_COUNT_ITEMS:
+        return pd.DataFrame()
+    names = raw_df_original["품목명_원본"].astype(str)
+    rows = []
+    for item in SET_COUNT_ITEMS:
+        mask = names.str.contains(re.escape(item), regex=True, na=False)
+        rows.append({"상품": item, "세트수량": int(raw_df_original.loc[mask, "수량"].sum())})
+    return pd.DataFrame(rows)
+
 def build_sheet2(main_df):
     rows = {}
     king_mask = (
@@ -833,6 +855,13 @@ def process(order_file, code_file, set_config):
         ws_best8.cell(last, 4, f"=SUM(D2:D{last-1})").font = Font(name="Arial", size=10, bold=True)
         for c in ws_best8[last]:
             c.fill = PatternFill("solid", fgColor=COLOR_HEADER); c.border = THIN_BORDER
+    # 세트 수량 현황 시트
+    set_count_df = build_sheet_set_count(raw_df_for_best8)
+    if not set_count_df.empty:
+        ws_sc = wb.create_sheet("세트 수량 현황")
+        write_simple_sheet(ws_sc, set_count_df, ["상품", "세트수량"])
+        ws_sc.column_dimensions["A"].width = 45
+        ws_sc.column_dimensions["B"].width = 12
     if not sheet3_df.empty:
         write_simple_sheet(ws3, sheet3_df, ["품목명", "빈칸", "이름", "수량"])
         insert_sheet3_into_sheet1(wb)
