@@ -93,6 +93,12 @@ BONUS_ITEM_RULES = [
             {"name": "에티오피아 예가체페 아리차 토착종 워시드", "weight": "250g", "option": "갈지않음", "qty_mult": 1},
         ],
     },
+    {
+        "keyword": "홀리데이 싱글오리진 파우더 커피 세트 (10개입)",
+        "add_rows": [
+            {"name": "[증정] 홀리데이 씰 카드", "weight": "", "option": "", "qty_mult": 1},
+        ],
+    },
     # 추가 예시:
     # {"keyword": "새 세트명", "add_rows": [{"name": "구성품A", "weight": "250g", "option": "갈지않음", "qty_mult": 1}]},
 ]
@@ -141,7 +147,8 @@ TEXT_REPLACE = {
     "중간 분쇄(드립용)": "드립용",
     "가는 분쇄(에스프레소용)": "에스프레소용",
 }
-COLOR_DRIP   = "E2EFDA"
+COLOR_DRIP   = "E7E6E6"   # 회색 — A열에 "드립백" 포함
+COLOR_GIFT   = "E2EFDA"   # 연두색 — A열에 "[증정]" 포함
 COLOR_SCOOP  = "FFF2CC"
 COLOR_HEADER = "D9D9D9"
 COLOR_WHITE  = "FFFFFF"
@@ -198,6 +205,65 @@ def _kw_hit(keyword, name):
         if k in name and k not in keyword:
             return False
     return True
+
+# ── [도시블렌드] 보름달 드립백 증정 규칙 (수정 시 여기만) ───────────────
+# 아래 상품 수량 합 × 배수 를 전부 더해 증정 1행으로 표시 (품목명 완전 일치 기준)
+MOON_GIFT_NAME = "[증정] 보름달 드립백 1개"
+MOON_GIFT_RULES = [
+    (["[도시블렌드] 서울 블렌드 드립백 세트 (10개입)",
+      "[도시블렌드] 홀리데이 강릉 블렌드 드립백 세트 (10개입)"], 3),
+    (["[도시블렌드] 강릉 블렌드",
+      "[도시블렌드] 성수 하프 & 풀 블렌드"], 7),
+]
+# 증정 행을 이 상품 바로 위에 배치 (없으면 다음 후보 순서로)
+MOON_GIFT_ANCHORS = [
+    "[도시블렌드] 서울 블렌드 드립백 세트 (10개입)",
+    "[도시블렌드] 홀리데이 강릉 블렌드 드립백 세트 (10개입)",
+]
+# ────────────────────────────────────────────────────────────────────────
+
+# ── 세트 구성 원두를 '원두 중량 합산' 시트에 반영 + 주문취합 맨 아래로 이동 ─
+# 대상: 품목명이 아래와 같고 B열(중량)이 있는 행 (옵션 = 원두명, 중량×수량 합산)
+# 중량이 없는 행(예: 파우더스틱)은 원래 위치 유지. 필요 없으면 [] 로 비우기
+BEAN_COMPONENT_SETS = [
+    "시그니처 에티오피아 세트",
+]
+def _is_bean_component_row(df):
+    return (df["품목명"].astype(str).str.strip().isin(BEAN_COMPONENT_SETS)
+            & (df["중량"].apply(weight_to_gram) > 0))
+
+def move_bean_component_rows_last(main_df):
+    if not BEAN_COMPONENT_SETS:
+        return main_df
+    m = _is_bean_component_row(main_df)
+    if not m.any():
+        return main_df
+    return pd.concat([main_df[~m], main_df[m]], ignore_index=True)
+
+def calc_moon_gift(df):
+    names = df["품목명"].astype(str).str.strip()
+    total = 0
+    for items, mult in MOON_GIFT_RULES:
+        total += int(df.loc[names.isin(items), "수량"].sum()) * mult
+    return total
+
+def insert_moon_gift(main_df, qty):
+    if qty <= 0:
+        return main_df
+    names = main_df["품목명"].astype(str).str.strip().tolist()
+    pos = 0
+    for a in MOON_GIFT_ANCHORS:
+        if a in names:
+            pos = names.index(a); break
+    else:
+        for i, n in enumerate(names):
+            if n.startswith("[도시블렌드]"):
+                pos = i; break
+    new = {c: "" for c in main_df.columns}
+    new.update({"품목명": MOON_GIFT_NAME, "중량": "", "옵션": "", "수량": qty,
+                "_group": "드립백", "_g_order": GROUP_ORDER["드립백"], "_w_gram": 0})
+    top = main_df.iloc[:pos]; bottom = main_df.iloc[pos:]
+    return pd.concat([top, pd.DataFrame([new]), bottom], ignore_index=True)
 
 def expand_drip_gift(df):
     """드립백 100/200개, 정기 배송 100개입 → 에티오피아 드립백 증정 행 추가"""
@@ -652,6 +718,11 @@ def build_sheet2(main_df):
     for _, r in main_df[(main_df["_group"] == "원두") & ~king_mask].iterrows():
         name = re.sub(r"^\[커피 페스타 증정\]\s*", "", r["품목명"]).strip()
         rows[name] = rows.get(name, 0) + weight_to_gram(r["중량"]) * r["수량"]
+    if BEAN_COMPONENT_SETS:
+        for _, r in main_df[_is_bean_component_row(main_df)].iterrows():
+            name = str(r["옵션"]).strip()
+            if name:
+                rows[name] = rows.get(name, 0) + weight_to_gram(r["중량"]) * r["수량"]
     for _, r in main_df[main_df["_group"] == "스쿱세트"].iterrows():
         name = r["옵션"]
         rows[name] = rows.get(name, 0) + 250 * r["수량"]
@@ -663,6 +734,7 @@ def build_sheet2(main_df):
 def apply_style(ws, df_with_groups):
     header_fill = PatternFill("solid", fgColor=COLOR_HEADER)
     drip_fill   = PatternFill("solid", fgColor=COLOR_DRIP)
+    gift_fill   = PatternFill("solid", fgColor=COLOR_GIFT)
     scoop_fill  = PatternFill("solid", fgColor=COLOR_SCOOP)
     white_fill  = PatternFill("solid", fgColor=COLOR_WHITE)
     set_fill    = PatternFill("solid", fgColor=COLOR_SET)
@@ -682,7 +754,9 @@ def apply_style(ws, df_with_groups):
             for col_idx in range(1, 6):
                 ws.cell(row=row_num, column=col_idx).border = THIN_BORDER
             row_num += 1
-        if is_set:          fill = set_fill
+        if "[증정]" in str(cur_name):   fill = gift_fill
+        elif "드립백" in str(cur_name):  fill = drip_fill
+        elif is_set:        fill = set_fill
         elif group == "드립백":  fill = drip_fill
         elif group == "스쿱세트": fill = scoop_fill
         else:               fill = white_fill
@@ -833,8 +907,11 @@ def process(order_file, code_file, set_config):
     raw_df = expand_coupon_items(raw_df, coupon_config)
     raw_df = expand_drip_gift(raw_df)
     raw_df = expand_bonus_items(raw_df)
+    moon_gift_qty = calc_moon_gift(raw_df)
     raw_df = expand_set_items(raw_df, set_config)
     main_df = aggregate_and_sort(raw_df)
+    main_df = insert_moon_gift(main_df, moon_gift_qty)
+    main_df = move_bean_component_rows_last(main_df)
     if "_is_set_expanded" in raw_df.columns:
         set_flags = raw_df.groupby(
             raw_df.apply(lambda r: (r["품목명"], r.get("중량",""), r.get("옵션","")), axis=1)
