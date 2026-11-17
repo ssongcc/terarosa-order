@@ -117,11 +117,18 @@ SET_COUNT_ITEMS = [
     "시그니처 에티오피아 세트",
     "홀리데이 드립백 & 머그 선물세트",
     "홀리데이 드립백 리추얼 선물세트 (24개입)",
+    "홀리데이 슈톨렌 & 드립백 리추얼 (24개입) 세트",
 ]
 # ────────────────────────────────────────────────────────────────────────
 
 # ── 드립백 증정 규칙 (변경 시 여기만 수정) ──────────────────────────────
 DRIP_GIFT_RULES = []  # 이벤트 종료
+# ────────────────────────────────────────────────────────────────────────
+
+# ── 취합 시 절대 지우지 않을 문구 (제거/치환 규칙보다 우선 보호) ───────────
+KEEP_STRINGS = [
+    "[도시블렌드]",
+]
 # ────────────────────────────────────────────────────────────────────────
 
 REMOVE_STRINGS = [
@@ -182,6 +189,16 @@ def save_set_config(cfg: dict):
 # ──────────────────────────────────────────────
 # 세트/쿠폰 로직 (기존 그대로)
 # ──────────────────────────────────────────────
+def _kw_hit(keyword, name):
+    """keyword가 name에 포함되는지 판단. 단, name에 KEEP_STRINGS(예: [도시블렌드])가
+    있고 keyword에는 없으면 별개 상품으로 보고 매칭하지 않음 (합산 방지)"""
+    if keyword not in name:
+        return False
+    for k in KEEP_STRINGS:
+        if k in name and k not in keyword:
+            return False
+    return True
+
 def expand_drip_gift(df):
     """드립백 100/200개, 정기 배송 100개입 → 에티오피아 드립백 증정 행 추가"""
     expanded = []
@@ -191,7 +208,7 @@ def expand_drip_gift(df):
         opt  = str(row.get("옵션", "") or "").strip()
         qty  = int(row.get("수량", 1) or 1)
         for kw_name, kw_opt, gift_name, mult in DRIP_GIFT_RULES:
-            if kw_name in name:
+            if _kw_hit(kw_name, name):
                 if kw_opt is None or kw_opt in opt:
                     gift_row = row.copy()
                     gift_row["품목명"] = gift_name
@@ -213,7 +230,7 @@ def expand_bonus_items(df):
         qty  = int(row.get("수량", 1) or 1)
         matched = False
         for rule in BONUS_ITEM_RULES:
-            if rule["keyword"] in name:
+            if _kw_hit(rule["keyword"], name):
                 matched = True
                 if not rule.get("replace_original", False):
                     expanded.append(row)  # 원본 유지
@@ -237,7 +254,7 @@ def expand_set_items(df, set_config):
         name = str(row.get("품목명", "")).strip()
         matched = None
         for set_name, components in set_config.items():
-            if set_name in name:
+            if _kw_hit(set_name, name):
                 matched = (set_name, components)
                 break
         if matched and matched[1]:
@@ -307,6 +324,19 @@ def load_code_data(file):
     return df
 
 def clean_item_name(name):
+    # KEEP_STRINGS 보호: 제거/치환 규칙이 건드리지 못하도록 임시 토큰으로 대체
+    _keep = {}
+    for i, k in enumerate(KEEP_STRINGS):
+        if k in name:
+            tok = "\uE000%d\uE001" % i
+            _keep[tok] = k
+            name = name.replace(k, tok)
+    name = _clean_item_name_core(name)
+    for tok, k in _keep.items():
+        name = name.replace(tok, k)
+    return name.strip()
+
+def _clean_item_name_core(name):
     # PREFIX_REPLACE 먼저 적용 (REMOVE_STRINGS가 [플러스]를 제거하기 전에)
     for orig, repl in PREFIX_REPLACE:
         if orig in name:
